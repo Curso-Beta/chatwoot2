@@ -14,6 +14,7 @@ import {
 } from 'dashboard/composables/store';
 import ChannelName from './components/ChannelName.vue';
 import ChannelIcon from 'next/icon/ChannelIcon.vue';
+import Icon from 'next/icon/Icon.vue';
 import Button from 'dashboard/components-next/button/Button.vue';
 
 const getters = useStoreGetters();
@@ -143,9 +144,18 @@ const openDelete = inbox => {
               <ChannelIcon class="size-6 text-n-slate-10" :inbox="inbox" />
             </div>
             <div class="flex flex-col items-start gap-1">
-              <span class="block text-heading-3 text-n-slate-12 capitalize">
-                {{ inbox.name }}
-              </span>
+              <div class="flex items-center gap-2">
+                <span class="block text-heading-3 text-n-slate-12 capitalize">
+                  {{ inbox.name }}
+                </span>
+                <div
+                  v-if="inbox.reauthorization_required"
+                  v-tooltip.top="$t('INBOX_MGMT.RECONNECTION_REQUIRED')"
+                  class="grid place-content-center size-5 bg-n-ruby-5/60 rounded-full"
+                >
+                  <Icon icon="i-woot-alert" class="size-3 text-n-ruby-9" />
+                </div>
+              </div>
               <ChannelName
                 :channel-type="inbox.channel_type"
                 :medium="inbox.medium"
