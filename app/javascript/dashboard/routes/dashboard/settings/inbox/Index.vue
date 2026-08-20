@@ -155,6 +155,11 @@ const openDelete = inbox => {
                 >
                   <Icon icon="i-woot-alert" class="size-3 text-n-ruby-9" />
                 </div>
+                <div
+                  v-else
+                  v-tooltip.top="'Ativa'"
+                  class="size-2.5 rounded-full bg-n-teal-9"
+                />
               </div>
               <ChannelName
                 :channel-type="inbox.channel_type"
