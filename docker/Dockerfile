@@ -74,6 +74,7 @@ RUN if [ "$RAILS_ENV" = "production" ]; then \
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm i
 
+ARG CACHE_BUST=1
 COPY . /app
 
 # creating a log directory so that image wont fail when RAILS_LOG_TO_STDOUT is false
