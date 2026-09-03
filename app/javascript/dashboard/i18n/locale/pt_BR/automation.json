@@ -229,6 +229,7 @@
       "COMPANY_NAME": "Empresa",
       "REFERER_LINK": "Link de origem",
       "ASSIGNEE_NAME": "Agente atribuído",
+      "ASSIGNEE_AVAILABILITY": "Disponibilidade do agente",
       "TEAM_NAME": "Time",
       "PRIORITY": "Prioridade",
       "LABELS": "Etiquetas"

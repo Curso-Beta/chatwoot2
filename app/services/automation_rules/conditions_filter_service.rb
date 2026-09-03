@@ -26,15 +26,18 @@ class AutomationRules::ConditionsFilterService < FilterService
     return false unless rule_valid?
 
     @attribute_changed_query_filter = []
+    @assignee_availability_filters = []
 
     @rule.conditions.each_with_index do |query_hash, current_index|
       @attribute_changed_query_filter << query_hash and next if query_hash['filter_operator'] == 'attribute_changed'
+      @assignee_availability_filters << query_hash and next if query_hash['attribute_key'] == 'assignee_availability'
 
       apply_filter(query_hash, current_index)
     end
 
     records = base_relation.where(@query_string, @filter_values.with_indifferent_access)
     records = perform_attribute_changed_filter(records) if @attribute_changed_query_filter.any?
+    records = perform_assignee_availability_filter(records) if @assignee_availability_filters.any?
 
     records.any?
   rescue StandardError => e
@@ -106,6 +109,27 @@ class AutomationRules::ConditionsFilterService < FilterService
     else
       @attribute_changed_records + (current_attribute_changed_record | records)
     end
+  end
+
+  def perform_assignee_availability_filter(records)
+    assignee = @conversation.assignee
+    return [] if assignee.blank?
+
+    availability = assignee.availability_status
+
+    match = @assignee_availability_filters.all? do |filter|
+      expected = filter['values']&.first
+      case filter['filter_operator']
+      when 'equal_to'
+        availability == expected
+      when 'not_equal_to'
+        availability != expected
+      else
+        false
+      end
+    end
+
+    match ? records : []
   end
 
   def message_query_string(current_filter, query_hash, current_index)

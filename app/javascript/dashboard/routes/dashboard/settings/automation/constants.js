@@ -51,6 +51,12 @@ export const AUTOMATIONS = {
         filterOperators: OPERATOR_TYPES_3,
       },
       {
+        key: 'assignee_availability',
+        name: 'ASSIGNEE_AVAILABILITY',
+        inputType: 'multi_select',
+        filterOperators: OPERATOR_TYPES_1,
+      },
+      {
         key: 'team_id',
         name: 'TEAM_NAME',
         inputType: 'search_select',
@@ -339,6 +345,12 @@ export const AUTOMATIONS = {
         filterOperators: OPERATOR_TYPES_3,
       },
       {
+        key: 'assignee_availability',
+        name: 'ASSIGNEE_AVAILABILITY',
+        inputType: 'multi_select',
+        filterOperators: OPERATOR_TYPES_1,
+      },
+      {
         key: 'team_id',
         name: 'TEAM_NAME',
         inputType: 'search_select',
@@ -471,6 +483,12 @@ export const AUTOMATIONS = {
         name: 'ASSIGNEE_NAME',
         inputType: 'search_select',
         filterOperators: OPERATOR_TYPES_3,
+      },
+      {
+        key: 'assignee_availability',
+        name: 'ASSIGNEE_AVAILABILITY',
+        inputType: 'multi_select',
+        filterOperators: OPERATOR_TYPES_1,
       },
       {
         key: 'phone_number',

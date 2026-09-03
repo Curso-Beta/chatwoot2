@@ -230,6 +230,7 @@
       "COMPANY_NAME": "Company",
       "REFERER_LINK": "Referrer Link",
       "ASSIGNEE_NAME": "Assignee",
+      "ASSIGNEE_AVAILABILITY": "Assignee Availability",
       "TEAM_NAME": "Team",
       "PRIORITY": "Priority",
       "LABELS": "Labels"

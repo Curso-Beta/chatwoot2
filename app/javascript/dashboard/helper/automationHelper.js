@@ -167,6 +167,12 @@ export const getActionOptions = ({
   return actionsMap[type];
 };
 
+const ASSIGNEE_AVAILABILITY_OPTIONS = [
+  { id: 'online', name: 'Online' },
+  { id: 'offline', name: 'Offline' },
+  { id: 'busy', name: 'Busy' },
+];
+
 export const getConditionOptions = ({
   agents,
   booleanFilterOptions,
@@ -194,6 +200,7 @@ export const getConditionOptions = ({
   const conditionFilterMaps = {
     status: statusFilterOptions,
     assignee_id: agents,
+    assignee_availability: ASSIGNEE_AVAILABILITY_OPTIONS,
     contact: contacts,
     inbox_id: inboxes,
     team_id: generateTeamOptions(teams),
