@@ -2,7 +2,7 @@ module Api::V1::Accounts::Concerns::WhatsappHealthManagement
   extend ActiveSupport::Concern
 
   included do
-    skip_before_action :check_authorization, only: [:health, :register_webhook]
+    skip_before_action :check_authorization, only: [:health, :register_webhook, :create_whatsapp_template, :update_whatsapp_template, :delete_whatsapp_template]
     before_action :check_admin_authorization?, only: [:register_webhook, :create_whatsapp_template, :update_whatsapp_template, :delete_whatsapp_template]
     before_action :validate_whatsapp_cloud_channel, only: [:health, :register_webhook]
   end
