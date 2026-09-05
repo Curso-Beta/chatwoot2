@@ -48,6 +48,20 @@
       "CATEGORY": "Category",
       "LANGUAGE": "Language",
       "INBOXES": "Inboxes"
+    },
+    "CREATE": {
+      "BUTTON": "Create template",
+      "TITLE": "Create WhatsApp template",
+      "DESCRIPTION": "Create a new message template and submit it for Meta approval.",
+      "SUBMIT": "Create template",
+      "SUCCESS": "Template created and submitted for approval. It may take a few minutes.",
+      "ERROR": "Failed to create template. Please try again."
+    },
+    "DELETE": {
+      "BUTTON": "Delete",
+      "CONFIRM": "Are you sure you want to delete the template \"{name}\"? This action cannot be undone.",
+      "SUCCESS": "Template deleted successfully.",
+      "ERROR": "Failed to delete template. Please try again."
     }
   }
 }

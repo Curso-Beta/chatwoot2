@@ -298,6 +298,9 @@ Rails.application.routes.draw do
             post :set_agent_bot, on: :member
             delete :avatar, on: :member
             post :sync_templates, on: :member
+            post :create_whatsapp_template, on: :member
+            put :update_whatsapp_template, on: :member
+            delete :delete_whatsapp_template, on: :member
             put :whatsapp_business_management_token, on: :member
             get :health, on: :member
             post :register_webhook, on: :member

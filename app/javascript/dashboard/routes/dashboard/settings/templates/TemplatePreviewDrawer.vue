@@ -1,6 +1,8 @@
 <script setup>
 import { computed, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useAlert } from 'dashboard/composables';
+import InboxesAPI from 'dashboard/api/inboxes';
 
 import Button from 'dashboard/components-next/button/Button.vue';
 import SidePanel from 'dashboard/components-next/side-panel/SidePanel.vue';
@@ -23,7 +25,9 @@ const props = defineProps({
   },
 });
 
+const emit = defineEmits(['deleted']);
 const { t } = useI18n();
+const isDeleting = ref(false);
 const META_TEMPLATE_MANAGER_URL =
   'https://business.facebook.com/latest/whatsapp_manager/message_templates';
 const TWILIO_TEMPLATE_MANAGER_URL =
@@ -59,6 +63,42 @@ const statusLabel = computed(() =>
     ? t('WHATSAPP_TEMPLATE_MGMT.STATUSES.UNSUBMITTED')
     : formatTemplateLabel(props.template?.status)
 );
+const canDelete = computed(() => {
+  if (!props.template) return false;
+  return props.template.inboxes?.some(
+    inbox => inbox.provider === 'whatsapp_cloud'
+  );
+});
+
+const deleteTemplate = async () => {
+  if (!props.template || isDeleting.value) return;
+
+  const confirmed = window.confirm(
+    t('WHATSAPP_TEMPLATE_MGMT.DELETE.CONFIRM', { name: props.template.name })
+  );
+  if (!confirmed) return;
+
+  isDeleting.value = true;
+  try {
+    const inbox = props.template.inboxes?.find(
+      i => i.provider === 'whatsapp_cloud'
+    );
+    if (!inbox) return;
+
+    await InboxesAPI.deleteWhatsappTemplate(inbox.id, props.template.name);
+    useAlert(t('WHATSAPP_TEMPLATE_MGMT.DELETE.SUCCESS'));
+    emit('deleted');
+    close();
+  } catch (error) {
+    const errorMessage =
+      error?.response?.data?.error?.message ||
+      t('WHATSAPP_TEMPLATE_MGMT.DELETE.ERROR');
+    useAlert(errorMessage);
+  } finally {
+    isDeleting.value = false;
+  }
+};
+
 const open = () => panelRef.value?.open();
 const close = () => panelRef.value?.close();
 
@@ -127,15 +167,33 @@ defineExpose({ open, close });
       </div>
     </div>
 
-    <template v-if="managementUrl" #footer>
-      <a :href="managementUrl" target="_blank" rel="noopener noreferrer">
+    <template v-if="managementUrl || canDelete" #footer>
+      <div class="flex gap-3 w-full">
         <Button
-          class="w-full"
-          :label="managementLabel"
-          icon="i-lucide-external-link"
-          trailing-icon
+          v-if="canDelete"
+          color="ruby"
+          variant="faded"
+          :label="t('WHATSAPP_TEMPLATE_MGMT.DELETE.BUTTON')"
+          icon="i-lucide-trash-2"
+          :is-loading="isDeleting"
+          :disabled="isDeleting"
+          @click="deleteTemplate"
         />
-      </a>
+        <a
+          v-if="managementUrl"
+          :href="managementUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="flex-1"
+        >
+          <Button
+            class="w-full"
+            :label="managementLabel"
+            icon="i-lucide-external-link"
+            trailing-icon
+          />
+        </a>
+      </div>
     </template>
   </SidePanel>
 </template>

@@ -16,6 +16,7 @@ import BaseSettingsHeader from '../components/BaseSettingsHeader.vue';
 import SettingsLayout from '../SettingsLayout.vue';
 import TemplateCard from './TemplateCard.vue';
 import TemplatePreviewDrawer from './TemplatePreviewDrawer.vue';
+import CreateTemplateDialog from './CreateTemplateDialog.vue';
 import {
   formatTemplateDate,
   formatTemplateLanguage,
@@ -47,6 +48,7 @@ const selectedType = ref('all');
 const selectedTemplate = ref(null);
 const openFilterMenu = ref(null);
 const previewPanelRef = ref(null);
+const createTemplateRef = ref(null);
 const templateRecordsByInboxId = new Map();
 const lastSyncAttemptsByInboxId = ref({});
 const isSyncing = ref(false);
@@ -403,15 +405,24 @@ onDeactivated(abortTemplateRequest);
           </span>
         </template>
         <template #actions>
-          <Button
-            :label="$t('WHATSAPP_TEMPLATE_MGMT.SYNC_TEMPLATES')"
-            icon="i-lucide-refresh-cw"
-            color="slate"
-            size="sm"
-            :is-loading="isSyncing"
-            :disabled="!whatsappInboxes.length || isSyncing"
-            @click="syncTemplates"
-          />
+          <div class="flex items-center gap-2">
+            <Button
+              :label="$t('WHATSAPP_TEMPLATE_MGMT.CREATE.BUTTON')"
+              icon="i-lucide-plus"
+              size="sm"
+              :disabled="!whatsappInboxes.length"
+              @click="createTemplateRef?.open()"
+            />
+            <Button
+              :label="$t('WHATSAPP_TEMPLATE_MGMT.SYNC_TEMPLATES')"
+              icon="i-lucide-refresh-cw"
+              color="slate"
+              size="sm"
+              :is-loading="isSyncing"
+              :disabled="!whatsappInboxes.length || isSyncing"
+              @click="syncTemplates"
+            />
+          </div>
         </template>
       </BaseSettingsHeader>
     </template>
@@ -436,6 +447,14 @@ onDeactivated(abortTemplateRequest);
       </div>
     </template>
 
-    <TemplatePreviewDrawer ref="previewPanelRef" :template="selectedTemplate" />
+    <TemplatePreviewDrawer
+      ref="previewPanelRef"
+      :template="selectedTemplate"
+      @deleted="fetchTemplates"
+    />
+    <CreateTemplateDialog
+      ref="createTemplateRef"
+      @created="fetchTemplates"
+    />
   </SettingsLayout>
 </template>

@@ -42,6 +42,21 @@
       "LANGUAGE": "Idioma",
       "INBOXES": "Caixas de Entrada",
       "LAST_SYNC_ATTEMPT": "Última tentativa de sincronização"
+    },
+    "SYNC_TEMPLATES": "Sincronizar modelos",
+    "CREATE": {
+      "BUTTON": "Criar modelo",
+      "TITLE": "Criar modelo de WhatsApp",
+      "DESCRIPTION": "Crie um novo modelo de mensagem e envie para aprovação da Meta.",
+      "SUBMIT": "Criar modelo",
+      "SUCCESS": "Modelo criado e enviado para aprovação. Pode levar alguns minutos.",
+      "ERROR": "Falha ao criar modelo. Tente novamente."
+    },
+    "DELETE": {
+      "BUTTON": "Excluir",
+      "CONFIRM": "Tem certeza que deseja excluir o modelo \"{name}\"? Esta ação não pode ser desfeita.",
+      "SUCCESS": "Modelo excluído com sucesso.",
+      "ERROR": "Falha ao excluir modelo. Tente novamente."
     }
   }
 }

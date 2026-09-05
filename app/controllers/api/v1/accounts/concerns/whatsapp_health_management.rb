@@ -3,8 +3,41 @@ module Api::V1::Accounts::Concerns::WhatsappHealthManagement
 
   included do
     skip_before_action :check_authorization, only: [:health, :register_webhook]
-    before_action :check_admin_authorization?, only: [:register_webhook]
+    before_action :check_admin_authorization?, only: [:register_webhook, :create_whatsapp_template, :update_whatsapp_template, :delete_whatsapp_template]
     before_action :validate_whatsapp_cloud_channel, only: [:health, :register_webhook]
+  end
+
+  def create_whatsapp_template
+    return render_whatsapp_only_error unless whatsapp_cloud_channel?
+
+    result = template_management_service.create_template(template_params)
+    if result[:success]
+      render json: result, status: :created
+    else
+      render json: { error: result[:error] }, status: :unprocessable_entity
+    end
+  end
+
+  def update_whatsapp_template
+    return render_whatsapp_only_error unless whatsapp_cloud_channel?
+
+    result = template_management_service.update_template(params[:template_id], template_params)
+    if result[:success]
+      render json: result
+    else
+      render json: { error: result[:error] }, status: :unprocessable_entity
+    end
+  end
+
+  def delete_whatsapp_template
+    return render_whatsapp_only_error unless whatsapp_cloud_channel?
+
+    result = template_management_service.delete_template(params[:template_name])
+    if result[:success]
+      render json: result
+    else
+      render json: { error: result[:error] }, status: :unprocessable_entity
+    end
   end
 
   def sync_templates
@@ -97,5 +130,24 @@ module Api::V1::Accounts::Concerns::WhatsappHealthManagement
     elsif @inbox.twilio? && @inbox.channel.whatsapp?
       Channels::Twilio::TemplatesSyncJob.perform_later(@inbox.channel)
     end
+  end
+
+  def whatsapp_cloud_channel?
+    @inbox.channel.is_a?(Channel::Whatsapp) && @inbox.channel.provider == 'whatsapp_cloud'
+  end
+
+  def render_whatsapp_only_error
+    render json: { error: 'This operation is only available for WhatsApp Cloud API channels' }, status: :unprocessable_entity
+  end
+
+  def template_management_service
+    @template_management_service ||= Whatsapp::TemplateManagementService.new(whatsapp_channel)
+  end
+
+  def template_params
+    params.permit(
+      :name, :language, :category, :allow_category_change, :template_id, :template_name,
+      components: [:type, :format, :text, { example: {}, buttons: [:type, :text, :url, :phone_number, { example: [] }] }]
+    )
   end
 end
