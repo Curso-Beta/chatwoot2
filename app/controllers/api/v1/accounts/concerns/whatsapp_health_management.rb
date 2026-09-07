@@ -12,6 +12,7 @@ module Api::V1::Accounts::Concerns::WhatsappHealthManagement
 
     result = template_management_service.create_template(template_params)
     if result[:success]
+      whatsapp_channel.sync_templates
       render json: result, status: :created
     else
       render json: { error: result[:error] }, status: :unprocessable_entity
@@ -34,6 +35,7 @@ module Api::V1::Accounts::Concerns::WhatsappHealthManagement
 
     result = template_management_service.delete_template(params[:template_name])
     if result[:success]
+      whatsapp_channel.sync_templates
       render json: result
     else
       render json: { error: result[:error] }, status: :unprocessable_entity
