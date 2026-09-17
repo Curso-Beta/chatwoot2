@@ -26,12 +26,11 @@ module InstagramConcern
   end
 
   def exchange_for_long_lived_token(short_lived_token)
-    endpoint = 'https://graph.instagram.com/access_token'
+    endpoint = "https://graph.instagram.com/#{GlobalConfigService.load('INSTAGRAM_API_VERSION', 'v22.0')}/access_token"
     params = {
       grant_type: 'ig_exchange_token',
       client_secret: client_secret,
-      access_token: short_lived_token,
-      client_id: client_id
+      access_token: short_lived_token
     }
 
     make_api_request(endpoint, params, 'Failed to exchange token')
