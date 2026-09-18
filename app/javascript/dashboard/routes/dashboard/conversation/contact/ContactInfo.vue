@@ -59,7 +59,11 @@ export default {
     ...mapGetters({
       uiFlags: 'contacts/getUIFlags',
       currentChat: 'getSelectedChat',
+      currentAccountId: 'getCurrentAccountId',
     }),
+    isHotwebinarAccount() {
+      return this.currentAccountId === 2;
+    },
     contactProfileLink() {
       return `/app/accounts/${this.$route.params.accountId}/contacts/${this.contact.id}`;
     },
@@ -106,6 +110,12 @@ export default {
   },
   methods: {
     dynamicTime,
+    openSaasDash(action) {
+      const email = this.contact.email;
+      if (!email) return;
+      const url = `https://web-production-1e970.up.railway.app/api/cx/goto?q=${encodeURIComponent(email)}&action=${action}`;
+      window.open(url, '_blank');
+    },
     toggleEditModal() {
       this.showEditModal = !this.showEditModal;
     },
@@ -248,6 +258,22 @@ export default {
           </div>
         </div>
 
+        <div v-if="isHotwebinarAccount && contact.email" class="flex gap-1.5">
+          <NextButton
+            xs
+            icon="i-lucide-external-link"
+            label="Acessar cliente"
+            @click="openSaasDash('impersonate')"
+          />
+          <NextButton
+            xs
+            slate
+            faded
+            icon="i-lucide-user"
+            label="Acessar cadastro"
+            @click="openSaasDash('customer')"
+          />
+        </div>
         <p v-if="additionalAttributes.description" class="break-words mb-0.5">
           {{ additionalAttributes.description }}
         </p>
