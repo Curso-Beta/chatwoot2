@@ -6,6 +6,10 @@ class Webhooks::AgentBotInternalController < ActionController::API
   IA_ENDPOINT = 'https://plataforma-agentes-production.up.railway.app/api/chatwoot'.freeze
   IA_BOT_ID = 2
 
+  IA_AGENT_COMERCIAL = 11
+  IA_AGENT_SUCESSO = 12
+  IA_AGENTS = [IA_AGENT_COMERCIAL, IA_AGENT_SUCESSO].freeze
+
   def process_payload
     case params[:event]
     when 'message_created'
@@ -27,7 +31,7 @@ class Webhooks::AgentBotInternalController < ActionController::API
 
     if params[:message_type] == 'incoming'
       if conversation_routed?(conversation)
-        forward_to_ia
+        forward_to_ia(conversation) if assigned_to_ia?(conversation)
       else
         send_routing_question_unless_asked(conversation)
       end
@@ -107,7 +111,7 @@ class Webhooks::AgentBotInternalController < ActionController::API
     greeting = name ? "Obrigado, #{name}!" : 'Obrigado!'
     send_bot_message(conversation, "#{greeting} Já vou te conectar com a equipe, enquanto isso escreva como podemos te ajudar? 😊")
     conversation.bot_handoff! if conversation.pending?
-
+    assign_ia_agent(conversation)
     trigger_ia(conversation)
   end
 
@@ -119,6 +123,24 @@ class Webhooks::AgentBotInternalController < ActionController::API
 
   def conversation_routed?(conversation)
     conversation.team_id.present? && conversation.open?
+  end
+
+  def assigned_to_ia?(conversation)
+    IA_AGENTS.include?(conversation.assignee_id)
+  end
+
+  def assign_ia_agent(conversation)
+    agent_id = ia_agent_for_team(conversation.team_id)
+    return unless agent_id
+
+    conversation.update!(assignee_id: agent_id)
+  end
+
+  def ia_agent_for_team(team_id)
+    case team_id
+    when TEAM_COMERCIAL then IA_AGENT_COMERCIAL
+    when TEAM_SUCESSO then IA_AGENT_SUCESSO
+    end
   end
 
   def trigger_ia(conversation)
@@ -134,6 +156,9 @@ class Webhooks::AgentBotInternalController < ActionController::API
       type: 'contact'
     }.compact
 
+    agent_id = ia_agent_for_team(conversation.team_id)
+    agent = User.find_by(id: agent_id) if agent_id
+
     payload = {
       event: 'message_created',
       message_type: 'incoming',
@@ -147,12 +172,17 @@ class Webhooks::AgentBotInternalController < ActionController::API
       sender: contact_data,
       contact: contact_data
     }
+    payload[:ia_agent] = { id: agent.id, name: agent.name, email: agent.email } if agent
 
     post_to_ia(payload)
   end
 
-  def forward_to_ia
-    post_to_ia(params.to_unsafe_h)
+  def forward_to_ia(conversation)
+    payload = params.to_unsafe_h
+    agent_id = ia_agent_for_team(conversation.team_id)
+    agent = User.find_by(id: agent_id) if agent_id
+    payload[:ia_agent] = { id: agent.id, name: agent.name, email: agent.email } if agent
+    post_to_ia(payload)
   end
 
   def post_to_ia(payload)
