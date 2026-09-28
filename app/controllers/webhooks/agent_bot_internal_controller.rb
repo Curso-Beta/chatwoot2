@@ -11,7 +11,9 @@ class Webhooks::AgentBotInternalController < ActionController::API
     when 'message_updated'
       handle_message_updated
     end
-
+  rescue StandardError => e
+    Rails.logger.error("[AgentBotInternal] #{e.class}: #{e.message}")
+  ensure
     head :ok
   end
 
@@ -85,14 +87,20 @@ class Webhooks::AgentBotInternalController < ActionController::API
 
     contact = conversation.contact
     updates = {}
-    updates[:name] = values['name'] if values['name'].present? && (contact.name.blank? || contact.name.start_with?('Contact'))
+    updates[:name] = values['name'] if values['name'].present? && !contact_has_real_name?(contact)
     updates[:email] = values['email'] if values['email'].present? && contact.email.blank?
-    contact.update!(updates) if updates.present?
+    contact.update(updates) if updates.present?
 
     name = values['name'].presence
     greeting = name ? "Obrigado, #{name}!" : 'Obrigado!'
     send_bot_message(conversation, "#{greeting} Já vou te conectar com a equipe. 😊")
     conversation.bot_handoff! if conversation.pending?
+  end
+
+  def contact_has_real_name?(contact)
+    return false if contact.name.blank?
+
+    contact.name !~ /\A[a-z]+-[a-z]+-\d+\z/
   end
 
   def find_conversation
