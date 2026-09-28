@@ -105,7 +105,7 @@ class Webhooks::AgentBotInternalController < ActionController::API
     end
 
     greeting = name ? "Obrigado, #{name}!" : 'Obrigado!'
-    send_bot_message(conversation, "#{greeting} Já vou te conectar com a equipe. 😊")
+    send_bot_message(conversation, "#{greeting} Já vou te conectar com a equipe, enquanto isso escreva como podemos te ajudar? 😊")
     conversation.bot_handoff! if conversation.pending?
 
     trigger_ia(conversation)
