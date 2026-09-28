@@ -41,6 +41,12 @@ class Webhooks::AgentBotInternalController < ActionController::API
     conversation = find_conversation
     return if conversation.blank?
 
+    # Conversation has team assigned but still pending = waiting for contact info
+    if conversation.team_id.present? && conversation.pending?
+      process_contact_info(conversation)
+      return
+    end
+
     already_asked = conversation.messages.exists?(content_type: 'input_select', message_type: :outgoing)
     return if already_asked
 
@@ -66,7 +72,31 @@ class Webhooks::AgentBotInternalController < ActionController::API
     return unless team_id
 
     conversation.update!(team_id: team_id)
-    conversation.bot_handoff! if conversation.pending?
+
+    send_bot_message(conversation, 'Antes de te conectar com a equipe, me diz seu nome e email?')
+  end
+
+  def process_contact_info(conversation)
+    content = params[:content].to_s.strip
+    return if content.blank?
+
+    contact = conversation.contact
+    email = content[/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/]
+    name = content.gsub(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/, '').strip
+    name = nil if name.blank?
+
+    updates = {}
+    updates[:email] = email if email.present? && contact.email.blank?
+    updates[:name] = name if name.present? && (contact.name.blank? || contact.name.start_with?('Contact'))
+    contact.update!(updates) if updates.present?
+
+    if email.present?
+      greeting = name.present? ? "Obrigado, #{name}!" : 'Obrigado!'
+      send_bot_message(conversation, "#{greeting} Já vou te conectar com a equipe. 😊")
+      conversation.bot_handoff!
+    else
+      send_bot_message(conversation, 'Pode me informar seu email? Assim a equipe consegue te retornar.')
+    end
   end
 
   def find_conversation
@@ -79,22 +109,33 @@ class Webhooks::AgentBotInternalController < ActionController::API
     )
   end
 
-  def send_routing_question(conversation)
+  def send_bot_message(conversation, text, content_type: nil, content_attributes: nil)
     agent_bot = conversation.inbox&.agent_bot
     return if agent_bot.blank?
 
-    Messages::MessageBuilder.new(nil, conversation, {
-      content: 'Olá! 👋 Bem-vindo ao Curso Beta! Me conta: você já é nosso aluno?',
+    msg_params = {
+      content: text,
       message_type: 'outgoing',
-      content_type: 'input_select',
       sender_type: 'AgentBot',
-      sender_id: agent_bot.id,
+      sender_id: agent_bot.id
+    }
+    msg_params[:content_type] = content_type if content_type
+    msg_params[:content_attributes] = content_attributes if content_attributes
+
+    Messages::MessageBuilder.new(nil, conversation, msg_params).perform
+  end
+
+  def send_routing_question(conversation)
+    send_bot_message(
+      conversation,
+      'Olá! 👋 Bem-vindo ao Curso Beta! Me conta: você já é nosso aluno?',
+      content_type: 'input_select',
       content_attributes: {
         items: [
           { title: 'Sim, já sou aluno', value: 'aluno' },
           { title: 'Ainda não sou aluno', value: 'nao_aluno' }
         ]
       }
-    }).perform
+    )
   end
 end
