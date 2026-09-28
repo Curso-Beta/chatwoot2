@@ -8,8 +8,6 @@ class Webhooks::AgentBotInternalController < ActionController::API
 
   def process_payload
     case params[:event]
-    when 'webwidget_triggered'
-      handle_webwidget_triggered
     when 'message_created'
       handle_message_created
     when 'message_updated'
@@ -23,35 +21,26 @@ class Webhooks::AgentBotInternalController < ActionController::API
 
   private
 
-  def handle_webwidget_triggered
-    contact_inbox = ContactInbox.find_by(id: params[:id])
-    return if contact_inbox.blank?
-
-    existing = contact_inbox.conversations.where(status: [:open, :pending]).last
-    return if existing.present?
-
-    conversation = Conversation.create!(
-      account_id: contact_inbox.inbox.account_id,
-      inbox_id: contact_inbox.inbox_id,
-      contact_id: contact_inbox.contact_id,
-      contact_inbox_id: contact_inbox.id,
-      status: :pending
-    )
-
-    send_routing_question(conversation)
-  end
-
   def handle_message_created
-    return unless params[:message_type] == 'incoming'
-
     conversation = find_conversation
     return if conversation.blank?
 
-    if conversation_routed?(conversation)
-      forward_to_ia
-      return
+    if params[:message_type] == 'incoming'
+      if conversation_routed?(conversation)
+        forward_to_ia
+      else
+        send_routing_question_unless_asked(conversation)
+      end
+    elsif campaign_message?
+      send_routing_question_unless_asked(conversation)
     end
+  end
 
+  def campaign_message?
+    params.dig(:additional_attributes, :campaign_id).present?
+  end
+
+  def send_routing_question_unless_asked(conversation)
     already_asked = conversation.messages.exists?(content_type: 'input_select', message_type: :outgoing)
     return if already_asked
 
