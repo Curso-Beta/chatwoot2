@@ -174,9 +174,14 @@ class MailPresenter < SimpleDelegator
   end
 
   def notification_email_from_chatwoot?
-    # notification emails are send via mailer sender email address. so it should match
-    configured_sender = Mail::Address.new(ENV.fetch('MAILER_SENDER_EMAIL', 'Chatwoot <accounts@chatwoot.com>')).address
-    original_sender.to_s.casecmp?(configured_sender)
+    sender = original_sender.to_s
+    global = Mail::Address.new(ENV.fetch('MAILER_SENDER_EMAIL', 'Chatwoot <accounts@chatwoot.com>')).address
+    return true if sender.casecmp?(global)
+
+    account_email = @account&.support_email.presence
+    return true if account_email && sender.casecmp?(Mail::Address.new(account_email).address)
+
+    false
   end
 
   private
