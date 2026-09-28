@@ -670,6 +670,13 @@ const menuItems = computed(() => {
       ],
     },
     {
+      name: 'Beta360',
+      label: '360 Beta',
+      icon: 'i-lucide-radar',
+      to: accountScopedRoute('beta360_dashboard'),
+      activeOn: ['beta360_dashboard'],
+    },
+    {
       name: 'Reports',
       label: t('SIDEBAR.REPORTS'),
       icon: 'i-lucide-chart-spline',

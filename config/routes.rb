@@ -533,6 +533,7 @@ Rails.application.routes.draw do
               get :channel
             end
           end
+          resources :beta360, only: [:index]
           resources :reports, only: [:index] do
             collection do
               get :summary
