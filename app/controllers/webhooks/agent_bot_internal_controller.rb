@@ -37,6 +37,8 @@ class Webhooks::AgentBotInternalController < ActionController::API
       end
     elsif campaign_message?
       send_routing_question_unless_asked(conversation)
+    elsif handoff_requested?(conversation)
+      perform_handoff(conversation)
     end
   end
 
@@ -127,6 +129,38 @@ class Webhooks::AgentBotInternalController < ActionController::API
 
   def assigned_to_ia?(conversation)
     IA_AGENTS.include?(conversation.assignee_id)
+  end
+
+  def handoff_requested?(conversation)
+    params[:message_type] == 'outgoing' &&
+      assigned_to_ia?(conversation) &&
+      params.dig(:content_attributes, :handoff).present?
+  end
+
+  def perform_handoff(conversation)
+    team = Team.find_by(id: conversation.team_id)
+    return if team.blank?
+
+    humans = team.members.where.not(id: IA_AGENTS)
+    return if humans.empty?
+
+    online_ids = humans.select { |u| u.availability_status == 'online' }.map(&:id)
+    pool = online_ids.presence || humans.pluck(:id)
+
+    agent_loads = pool.map do |uid|
+      [uid, Conversation.where(team_id: team.id, assignee_id: uid, status: :open).count]
+    end
+    next_agent_id = agent_loads.min_by(&:last).first
+
+    conversation.update!(assignee_id: next_agent_id)
+
+    agent = User.find(next_agent_id)
+    if online_ids.present?
+      send_bot_message(conversation, "#{agent.name} vai continuar seu atendimento. 😊")
+    else
+      send_bot_message(conversation, "Nossas atendentes não estão disponíveis no momento. Sua conversa foi encaminhada para #{agent.name} e será respondida assim que possível. 😊")
+    end
+    Rails.logger.info("[AgentBotInternal] Handoff conversation #{conversation.display_id} to #{agent.name} (#{agent.id}), online=#{online_ids.present?}")
   end
 
   def assign_ia_agent(conversation)
