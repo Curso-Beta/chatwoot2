@@ -85,13 +85,26 @@ class Webhooks::AgentBotInternalController < ActionController::API
       hash[key] = val if key.present?
     end
 
+    email = values['email'].to_s.strip.downcase.presence
+    name = values['name'].to_s.strip.presence
     contact = conversation.contact
-    updates = {}
-    updates[:name] = values['name'] if values['name'].present? && !contact_has_real_name?(contact)
-    updates[:email] = values['email'] if values['email'].present? && contact.email.blank?
-    contact.update(updates) if updates.present?
 
-    name = values['name'].presence
+    if email.present?
+      existing = Contact.find_by(email: email, account_id: conversation.account_id)
+      if existing && existing.id != contact.id
+        existing.update(name: name) if name.present? && !contact_has_real_name?(existing)
+        conversation.update_columns(contact_id: existing.id)
+        conversation.contact_inbox&.update_columns(contact_id: existing.id)
+      else
+        updates = {}
+        updates[:email] = email if contact.email.blank?
+        updates[:name] = name if name.present? && !contact_has_real_name?(contact)
+        contact.update(updates) if updates.present?
+      end
+    elsif name.present? && !contact_has_real_name?(contact)
+      contact.update(name: name)
+    end
+
     greeting = name ? "Obrigado, #{name}!" : 'Obrigado!'
     send_bot_message(conversation, "#{greeting} Já vou te conectar com a equipe. 😊")
     conversation.bot_handoff! if conversation.pending?
