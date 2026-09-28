@@ -41,12 +41,6 @@ class Webhooks::AgentBotInternalController < ActionController::API
     conversation = find_conversation
     return if conversation.blank?
 
-    # Conversation has team assigned but still pending = waiting for contact info
-    if conversation.team_id.present? && conversation.pending?
-      process_contact_info(conversation)
-      return
-    end
-
     already_asked = conversation.messages.exists?(content_type: 'input_select', message_type: :outgoing)
     return if already_asked
 
@@ -54,14 +48,21 @@ class Webhooks::AgentBotInternalController < ActionController::API
   end
 
   def handle_message_updated
-    return unless params[:content_type] == 'input_select'
-
     submitted = params.dig(:content_attributes, :submitted_values)
     return if submitted.blank?
 
     conversation = find_conversation
     return if conversation.blank?
 
+    case params[:content_type]
+    when 'input_select'
+      handle_routing_selection(conversation, submitted)
+    when 'form'
+      handle_form_submission(conversation, submitted)
+    end
+  end
+
+  def handle_routing_selection(conversation, submitted)
     selected_value = submitted.first&.dig(:value) || submitted.first&.dig('value')
     return if selected_value.blank?
 
@@ -72,31 +73,26 @@ class Webhooks::AgentBotInternalController < ActionController::API
     return unless team_id
 
     conversation.update!(team_id: team_id)
-
-    send_bot_message(conversation, 'Antes de te conectar com a equipe, me diz seu nome e email?')
+    send_contact_form(conversation)
   end
 
-  def process_contact_info(conversation)
-    content = params[:content].to_s.strip
-    return if content.blank?
+  def handle_form_submission(conversation, submitted)
+    values = submitted.each_with_object({}) do |field, hash|
+      key = field[:name] || field['name']
+      val = field[:value] || field['value']
+      hash[key] = val if key.present?
+    end
 
     contact = conversation.contact
-    email = content[/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/]
-    name = content.gsub(/[A-Za-z0-9._%+\-]+@[A-Za-z0-9.\-]+\.[A-Za-z]{2,}/, '').strip
-    name = nil if name.blank?
-
     updates = {}
-    updates[:email] = email if email.present? && contact.email.blank?
-    updates[:name] = name if name.present? && (contact.name.blank? || contact.name.start_with?('Contact'))
+    updates[:name] = values['name'] if values['name'].present? && (contact.name.blank? || contact.name.start_with?('Contact'))
+    updates[:email] = values['email'] if values['email'].present? && contact.email.blank?
     contact.update!(updates) if updates.present?
 
-    if email.present?
-      greeting = name.present? ? "Obrigado, #{name}!" : 'Obrigado!'
-      send_bot_message(conversation, "#{greeting} Já vou te conectar com a equipe. 😊")
-      conversation.bot_handoff!
-    else
-      send_bot_message(conversation, 'Pode me informar seu email? Assim a equipe consegue te retornar.')
-    end
+    name = values['name'].presence
+    greeting = name ? "Obrigado, #{name}!" : 'Obrigado!'
+    send_bot_message(conversation, "#{greeting} Já vou te conectar com a equipe. 😊")
+    conversation.bot_handoff! if conversation.pending?
   end
 
   def find_conversation
@@ -135,6 +131,21 @@ class Webhooks::AgentBotInternalController < ActionController::API
           { title: 'Sim, já sou aluno', value: 'aluno' },
           { title: 'Ainda não sou aluno', value: 'nao_aluno' }
         ]
+      }
+    )
+  end
+
+  def send_contact_form(conversation)
+    send_bot_message(
+      conversation,
+      'Para te conectar com a equipe, preencha seus dados:',
+      content_type: 'form',
+      content_attributes: {
+        items: [
+          { name: 'name', label: 'Nome', type: 'text', required: true, placeholder: 'Seu nome' },
+          { name: 'email', label: 'E-mail', type: 'email', required: true, placeholder: 'seu@email.com' }
+        ],
+        button_label: 'Enviar'
       }
     )
   end
