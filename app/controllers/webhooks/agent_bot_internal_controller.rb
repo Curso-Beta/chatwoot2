@@ -1,6 +1,9 @@
+require 'net/http'
+
 class Webhooks::AgentBotInternalController < ActionController::API
   TEAM_SUCESSO = 1
   TEAM_COMERCIAL = 3
+  IA_ENDPOINT = 'https://plataforma-agentes-production.up.railway.app/api/chatwoot'.freeze
 
   def process_payload
     case params[:event]
@@ -43,6 +46,11 @@ class Webhooks::AgentBotInternalController < ActionController::API
     conversation = find_conversation
     return if conversation.blank?
 
+    if conversation_routed?(conversation)
+      forward_to_ia
+      return
+    end
+
     already_asked = conversation.messages.exists?(content_type: 'input_select', message_type: :outgoing)
     return if already_asked
 
@@ -56,12 +64,9 @@ class Webhooks::AgentBotInternalController < ActionController::API
     conversation = find_conversation
     return if conversation.blank?
 
-    case params[:content_type]
-    when 'input_select'
-      handle_routing_selection(conversation, submitted)
-    when 'form'
-      handle_form_submission(conversation, submitted)
-    end
+    return unless params[:content_type] == 'input_select'
+
+    handle_routing_selection(conversation, submitted)
   end
 
   def handle_routing_selection(conversation, submitted)
@@ -75,45 +80,62 @@ class Webhooks::AgentBotInternalController < ActionController::API
     return unless team_id
 
     conversation.update!(team_id: team_id)
-    send_contact_form(conversation)
-  end
-
-  def handle_form_submission(conversation, submitted)
-    values = submitted.each_with_object({}) do |field, hash|
-      key = field[:name] || field['name']
-      val = field[:value] || field['value']
-      hash[key] = val if key.present?
-    end
-
-    email = values['email'].to_s.strip.downcase.presence
-    name = values['name'].to_s.strip.presence
-    contact = conversation.contact
-
-    if email.present?
-      existing = Contact.find_by(email: email, account_id: conversation.account_id)
-      if existing && existing.id != contact.id
-        existing.update(name: name) if name.present? && !contact_has_real_name?(existing)
-        conversation.update_columns(contact_id: existing.id)
-        conversation.contact_inbox&.update_columns(contact_id: existing.id)
-      else
-        updates = {}
-        updates[:email] = email if contact.email.blank?
-        updates[:name] = name if name.present? && !contact_has_real_name?(contact)
-        contact.update(updates) if updates.present?
-      end
-    elsif name.present? && !contact_has_real_name?(contact)
-      contact.update(name: name)
-    end
-
-    greeting = name ? "Obrigado, #{name}!" : 'Obrigado!'
-    send_bot_message(conversation, "#{greeting} Já vou te conectar com a equipe. 😊")
+    send_bot_message(conversation, 'Um momento, vou te conectar com a equipe... 😊')
     conversation.bot_handoff! if conversation.pending?
+
+    trigger_ia(conversation)
   end
 
-  def contact_has_real_name?(contact)
-    return false if contact.name.blank?
+  def conversation_routed?(conversation)
+    conversation.team_id.present? && conversation.open?
+  end
 
-    contact.name !~ /\A[a-z]+-[a-z]+-\d+\z/
+  def trigger_ia(conversation)
+    first_msg = conversation.messages.where(message_type: :incoming).order(:created_at).first
+    return if first_msg.blank?
+
+    contact = conversation.contact
+    contact_data = {
+      id: contact.id,
+      name: contact.name,
+      email: contact.email,
+      phone_number: contact.phone_number,
+      type: 'contact'
+    }.compact
+
+    payload = {
+      event: 'message_created',
+      message_type: 'incoming',
+      content: first_msg.content,
+      id: first_msg.id,
+      conversation: {
+        id: conversation.display_id,
+        account: { id: conversation.account_id }
+      },
+      account: { id: conversation.account_id },
+      sender: contact_data,
+      contact: contact_data
+    }
+
+    post_to_ia(payload)
+  end
+
+  def forward_to_ia
+    post_to_ia(params.to_unsafe_h)
+  end
+
+  def post_to_ia(payload)
+    uri = URI(IA_ENDPOINT)
+    http = Net::HTTP.new(uri.host, uri.port)
+    http.use_ssl = true
+    http.open_timeout = 5
+    http.read_timeout = 10
+
+    request = Net::HTTP::Post.new(uri.path, 'Content-Type' => 'application/json')
+    request.body = payload.to_json
+    http.request(request)
+  rescue StandardError => e
+    Rails.logger.error("[AgentBotInternal] IA forward failed: #{e.class}: #{e.message}")
   end
 
   def find_conversation
@@ -152,21 +174,6 @@ class Webhooks::AgentBotInternalController < ActionController::API
           { title: 'Sim, já sou aluno', value: 'aluno' },
           { title: 'Ainda não sou aluno', value: 'nao_aluno' }
         ]
-      }
-    )
-  end
-
-  def send_contact_form(conversation)
-    send_bot_message(
-      conversation,
-      'Para te conectar com a equipe, preencha seus dados:',
-      content_type: 'form',
-      content_attributes: {
-        items: [
-          { name: 'name', label: 'Nome', type: 'text', required: true, placeholder: 'Seu nome' },
-          { name: 'email', label: 'E-mail', type: 'email', required: true, placeholder: 'seu@email.com' }
-        ],
-        button_label: 'Enviar'
       }
     )
   end
