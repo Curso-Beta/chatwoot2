@@ -4,6 +4,7 @@ class Webhooks::AgentBotInternalController < ActionController::API
   TEAM_SUCESSO = 1
   TEAM_COMERCIAL = 3
   IA_ENDPOINT = 'https://plataforma-agentes-production.up.railway.app/api/chatwoot'.freeze
+  IA_BOT_ID = 2
 
   def process_payload
     case params[:event]
@@ -166,17 +167,16 @@ class Webhooks::AgentBotInternalController < ActionController::API
   end
 
   def post_to_ia(payload)
-    uri = URI(IA_ENDPOINT)
-    http = Net::HTTP.new(uri.host, uri.port)
-    http.use_ssl = true
-    http.open_timeout = 5
-    http.read_timeout = 10
+    ia_bot = AgentBot.find_by(id: IA_BOT_ID)
+    return if ia_bot.blank?
 
-    request = Net::HTTP::Post.new(uri.path, 'Content-Type' => 'application/json')
-    request.body = payload.to_json
-    http.request(request)
-  rescue StandardError => e
-    Rails.logger.error("[AgentBotInternal] IA forward failed: #{e.class}: #{e.message}")
+    AgentBots::WebhookJob.perform_later(
+      ia_bot.outgoing_url,
+      payload,
+      :agent_bot_webhook,
+      secret: ia_bot.secret,
+      delivery_id: SecureRandom.uuid
+    )
   end
 
   def find_conversation
