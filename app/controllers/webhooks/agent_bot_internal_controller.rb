@@ -123,8 +123,12 @@ class Webhooks::AgentBotInternalController < ActionController::API
     contact.name !~ /\A[a-z]+-[a-z]+-\d+\z/
   end
 
+  # Com time definido, a conversa já passou pela recepção — em qualquer
+  # status menos resolvida. Antes exigia "open": quando a pessoa resolvia a
+  # conversa pelo widget e voltava a escrever, ela reabria como "pending", a
+  # recepção não repassava nada e a IA ficava muda (Vânia, 60501, 28/09/2026).
   def conversation_routed?(conversation)
-    conversation.team_id.present? && conversation.open?
+    conversation.team_id.present? && !conversation.resolved?
   end
 
   def assigned_to_ia?(conversation)

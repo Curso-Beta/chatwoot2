@@ -38,7 +38,19 @@ export default {
       conversationSize: 'conversation/getConversationSize',
       currentUser: 'contacts/getCurrentUser',
       isWidgetStyleFlat: 'appConfig/isWidgetStyleFlat',
+      messages: 'conversation/getConversation',
     }),
+    // Curso Beta (28/09/2026): antes de escolher "Sim, já sou aluno" ou
+    // "Ainda não sou aluno", não dá para escrever. Quem digitava em vez de
+    // tocar na opção ficava parado: sem time, a recepção não passava a
+    // conversa para a IA (conversa 60505).
+    aguardandoEscolha() {
+      return Object.values(this.messages || {}).some(
+        m =>
+          m.content_type === 'input_select' &&
+          !(m.content_attributes?.submitted_values || []).length
+      );
+    },
     textColor() {
       return getContrastingTextColor(this.widgetColor);
     },
@@ -134,8 +146,14 @@ export default {
 </script>
 
 <template>
+  <div
+    v-if="aguardandoEscolha && !hideReplyBox"
+    class="mb-1 rounded-lg px-4 py-3 text-center text-sm text-n-slate-11 bg-n-background"
+  >
+    Escolha uma das opções acima para continuar 👆
+  </div>
   <footer
-    v-if="!hideReplyBox"
+    v-else-if="!hideReplyBox"
     class="relative z-50 mb-1"
     :class="{
       'rounded-lg': !isWidgetStyleFlat,
