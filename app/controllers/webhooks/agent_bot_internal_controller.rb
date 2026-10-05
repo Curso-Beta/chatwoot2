@@ -149,9 +149,16 @@ class Webhooks::AgentBotInternalController < ActionController::API
     return if humans.empty?
 
     online_ids = humans.select { |u| u.availability_status == 'online' }.map(&:id)
-    pool = online_ids.presence || humans.pluck(:id)
+    # Breno, 30/09: "só transferir pra quem tiver online". Sem ninguém online,
+    # não atribui nem avisa: a conversa fica com a IA e a plataforma põe o caso
+    # na fila (antes caía numa atendente offline com "Nossas atendentes não
+    # estão disponíveis…" — Jessica, 61126, 05/10).
+    if online_ids.empty?
+      Rails.logger.info("[AgentBotInternal] Handoff conversation #{conversation.display_id}: ninguém online no time #{team.id}, fica com a IA")
+      return
+    end
 
-    agent_loads = pool.map do |uid|
+    agent_loads = online_ids.map do |uid|
       [uid, Conversation.where(team_id: team.id, assignee_id: uid, status: :open).count]
     end
     next_agent_id = agent_loads.min_by(&:last).first
@@ -159,12 +166,8 @@ class Webhooks::AgentBotInternalController < ActionController::API
     conversation.update!(assignee_id: next_agent_id)
 
     agent = User.find(next_agent_id)
-    if online_ids.present?
-      send_bot_message(conversation, "#{agent.name} vai continuar seu atendimento. 😊")
-    else
-      send_bot_message(conversation, "Nossas atendentes não estão disponíveis no momento. Sua conversa foi encaminhada para #{agent.name} e será respondida assim que possível. 😊")
-    end
-    Rails.logger.info("[AgentBotInternal] Handoff conversation #{conversation.display_id} to #{agent.name} (#{agent.id}), online=#{online_ids.present?}")
+    send_bot_message(conversation, "#{agent.name} vai continuar seu atendimento. 😊")
+    Rails.logger.info("[AgentBotInternal] Handoff conversation #{conversation.display_id} to #{agent.name} (#{agent.id})")
   end
 
   def assign_ia_agent(conversation)
