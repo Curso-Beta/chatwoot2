@@ -62,6 +62,7 @@ class Account < ApplicationRecord
   include AccountCaptainAutoResolve
 
   has_many :account_users, dependent: :destroy_async
+  has_many :agent_availability_logs, dependent: :destroy_async
   has_many :agent_bot_inboxes, dependent: :destroy_async
   has_many :agent_bots, dependent: :destroy_async
   has_many :api_channels, dependent: :destroy_async, class_name: '::Channel::Api'
@@ -114,6 +115,7 @@ class Account < ApplicationRecord
 
   before_validation :validate_limit_keys
   after_create_commit :notify_creation
+  after_create_commit :create_availability_dashboard_app
   after_update_commit :clear_unread_conversation_counts_cache, if: :saved_change_to_feature_conversation_unread_counts?
   after_update :resume_delayed_automations, if: -> { saved_change_to_feature_delayed_automations? && feature_delayed_automations? }
   after_destroy :remove_account_sequences
@@ -192,6 +194,20 @@ class Account < ApplicationRecord
 
   def notify_creation
     Rails.configuration.dispatcher.dispatch(ACCOUNT_CREATED, Time.zone.now, account: self)
+  end
+
+  def create_availability_dashboard_app
+    admin = account_users.where(role: :administrator).first
+    return unless admin
+
+    base_url = ENV.fetch('FRONTEND_URL', 'http://localhost:3000').chomp('/')
+    dashboard_apps.create!(
+      user_id: admin.user_id,
+      title: 'Disponibilidade',
+      content: [{ 'type' => 'frame', 'url' => "#{base_url}/agent-availability/#{id}" }]
+    )
+  rescue StandardError => e
+    Rails.logger.error("[Account] Failed to create availability dashboard app: #{e.message}")
   end
 
   def clear_unread_conversation_counts_cache

@@ -38,6 +38,8 @@ Rails.application.routes.draw do
     resource :slack_uploads, only: [:show]
   end
 
+  get '/agent-availability/:account_id', to: 'agent_availability_dashboard#show', as: 'agent_availability_dashboard'
+
   get '/health', to: 'health#show'
   get '/api', to: 'api#index'
   namespace :api, defaults: { format: 'json' } do
@@ -154,6 +156,12 @@ Rails.application.routes.draw do
             end
           end
           resources :dashboard_apps, only: [:index, :show, :create, :update, :destroy]
+          resource :agent_availability, only: [], controller: 'agent_availability' do
+            get :live
+            get :history
+            get :sessions
+            get :summary
+          end
           namespace :channels do
             resource :twilio_channel, only: [:create]
           end
