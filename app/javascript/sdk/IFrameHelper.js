@@ -174,6 +174,16 @@ export const IFrameHelper = {
         enableEmojiPicker: window.$chatwoot.enableEmojiPicker,
         enableEndConversation: window.$chatwoot.enableEndConversation,
       });
+      const serverExcludedPaths =
+        message.config.channelConfig.excludedPaths;
+      if (serverExcludedPaths && serverExcludedPaths.length) {
+        window.$chatwoot.excludedPaths = [
+          ...new Set([
+            ...window.$chatwoot.excludedPaths,
+            ...serverExcludedPaths,
+          ]),
+        ];
+      }
       IFrameHelper.onLoad({
         widgetColor: message.config.channelConfig.widgetColor,
       });

@@ -6,6 +6,7 @@ json.website_channel_config do
   json.csat_survey_enabled @web_widget.inbox.csat_survey_enabled
   json.disable_branding @web_widget.inbox.account.feature_enabled?('disable_branding')
   json.enabled_features @web_widget.selected_feature_flags
+  json.excluded_paths(@web_widget.excluded_paths || [])
   json.enabled_languages available_locales_with_name
   json.locale @web_widget.account.locale
   json.out_of_office_message @web_widget.inbox.out_of_office_message
