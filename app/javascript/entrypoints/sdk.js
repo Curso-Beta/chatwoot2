@@ -60,6 +60,8 @@ const runSDK = ({ baseUrl, websiteToken }) => {
     baseDomain,
     hasLoaded: false,
     hideMessageBubble: chatwootSettings.hideMessageBubble || false,
+    excludedPaths: chatwootSettings.excludedPaths || [],
+    _hiddenByExclusion: false,
     isOpen: false,
     position: chatwootSettings.position === 'left' ? 'left' : 'right',
     websiteToken,

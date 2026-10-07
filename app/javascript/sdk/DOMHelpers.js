@@ -46,6 +46,23 @@ export const onLocationChange = ({ referrerURL, referrerHost }) => {
   });
 };
 
+const checkExcludedPaths = () => {
+  if (!window.$chatwoot) return;
+  const { excludedPaths } = window.$chatwoot;
+  if (!excludedPaths || !excludedPaths.length) return;
+
+  const currentURL = window.location.href;
+  const isExcluded = excludedPaths.some(path => currentURL.includes(path));
+
+  if (isExcluded && !window.$chatwoot._hiddenByExclusion) {
+    window.$chatwoot.toggleBubbleVisibility('hide');
+    window.$chatwoot._hiddenByExclusion = true;
+  } else if (!isExcluded && window.$chatwoot._hiddenByExclusion) {
+    window.$chatwoot.toggleBubbleVisibility('show');
+    window.$chatwoot._hiddenByExclusion = false;
+  }
+};
+
 export const onLocationChangeListener = () => {
   let oldHref = document.location.href;
   const referrerHost = document.location.host;
@@ -57,6 +74,7 @@ export const onLocationChangeListener = () => {
     referrerURL: oldHref,
     referrerHost,
   });
+  checkExcludedPaths();
 
   const bodyList = document.querySelector('body');
   const observer = new MutationObserver(mutations => {
@@ -67,6 +85,7 @@ export const onLocationChangeListener = () => {
           referrerURL: oldHref,
           referrerHost,
         });
+        checkExcludedPaths();
       }
     });
   });
