@@ -11,12 +11,12 @@ import {
   hasUserKeys,
 } from '../sdk/cookieHelpers';
 import {
-  addClasses,
-  removeClasses,
+  applyBubbleVisibility,
+  isCurrentURLExcluded,
   restoreWidgetInDOM,
 } from '../sdk/DOMHelpers';
+import { resolveBubbleVisibility } from '../sdk/excludedPaths';
 import { setCookieWithDomain } from '../sdk/cookieHelpers';
-import { SDK_SET_BUBBLE_VISIBILITY } from 'shared/constants/sharedFrameEvents';
 
 const runSDK = ({ baseUrl, websiteToken }) => {
   if (window.$chatwoot) {
@@ -62,6 +62,9 @@ const runSDK = ({ baseUrl, websiteToken }) => {
     hideMessageBubble: chatwootSettings.hideMessageBubble || false,
     excludedPaths: chatwootSettings.excludedPaths || [],
     _hiddenByExclusion: false,
+    _requestedBubbleVisibility: chatwootSettings.hideMessageBubble
+      ? 'hide'
+      : 'show',
     isOpen: false,
     position: chatwootSettings.position === 'left' ? 'left' : 'right',
     websiteToken,
@@ -87,20 +90,13 @@ const runSDK = ({ baseUrl, websiteToken }) => {
     },
 
     toggleBubbleVisibility(visibility) {
-      let widgetElm = document.querySelector('.woot--bubble-holder');
-      let widgetHolder = document.querySelector('.woot-widget-holder');
-      if (visibility === 'hide') {
-        addClasses(widgetHolder, 'woot-widget--without-bubble');
-        addClasses(widgetElm, 'woot-hidden');
-        window.$chatwoot.hideMessageBubble = true;
-      } else if (visibility === 'show') {
-        removeClasses(widgetElm, 'woot-hidden');
-        removeClasses(widgetHolder, 'woot-widget--without-bubble');
-        window.$chatwoot.hideMessageBubble = false;
-      }
-      IFrameHelper.sendMessage(SDK_SET_BUBBLE_VISIBILITY, {
-        hideMessageBubble: window.$chatwoot.hideMessageBubble,
-      });
+      if (visibility !== 'hide' && visibility !== 'show') return;
+      window.$chatwoot._requestedBubbleVisibility = visibility;
+      const excluded = isCurrentURLExcluded();
+      window.$chatwoot._hiddenByExclusion = excluded;
+      applyBubbleVisibility(
+        resolveBubbleVisibility({ requested: visibility, excluded })
+      );
     },
 
     popoutChatWindow() {

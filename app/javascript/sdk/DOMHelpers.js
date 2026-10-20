@@ -1,5 +1,7 @@
 import { SDK_CSS } from './sdk.js';
 import { IFrameHelper } from './IFrameHelper';
+import { isExcludedURL, resolveBubbleVisibility } from './excludedPaths';
+import { SDK_SET_BUBBLE_VISIBILITY } from 'shared/constants/sharedFrameEvents';
 
 export const loadCSS = () => {
   const css = document.createElement('style');
@@ -46,21 +48,38 @@ export const onLocationChange = ({ referrerURL, referrerHost }) => {
   });
 };
 
+export const applyBubbleVisibility = visibility => {
+  const widgetElm = document.querySelector('.woot--bubble-holder');
+  const widgetHolder = document.querySelector('.woot-widget-holder');
+  if (visibility === 'hide') {
+    addClasses(widgetHolder, 'woot-widget--without-bubble');
+    addClasses(widgetElm, 'woot-hidden');
+    window.$chatwoot.hideMessageBubble = true;
+  } else if (visibility === 'show') {
+    removeClasses(widgetElm, 'woot-hidden');
+    removeClasses(widgetHolder, 'woot-widget--without-bubble');
+    window.$chatwoot.hideMessageBubble = false;
+  }
+  IFrameHelper.sendMessage(SDK_SET_BUBBLE_VISIBILITY, {
+    hideMessageBubble: window.$chatwoot.hideMessageBubble,
+  });
+};
+
+export const isCurrentURLExcluded = () =>
+  isExcludedURL(window.$chatwoot?.excludedPaths, window.location.href);
+
 const checkExcludedPaths = () => {
   if (!window.$chatwoot) return;
-  const { excludedPaths } = window.$chatwoot;
-  if (!excludedPaths || !excludedPaths.length) return;
+  const excluded = isCurrentURLExcluded();
+  if (excluded === window.$chatwoot._hiddenByExclusion) return;
 
-  const currentURL = window.location.href;
-  const isExcluded = excludedPaths.some(path => currentURL.includes(path));
-
-  if (isExcluded && !window.$chatwoot._hiddenByExclusion) {
-    window.$chatwoot.toggleBubbleVisibility('hide');
-    window.$chatwoot._hiddenByExclusion = true;
-  } else if (!isExcluded && window.$chatwoot._hiddenByExclusion) {
-    window.$chatwoot.toggleBubbleVisibility('show');
-    window.$chatwoot._hiddenByExclusion = false;
-  }
+  window.$chatwoot._hiddenByExclusion = excluded;
+  applyBubbleVisibility(
+    resolveBubbleVisibility({
+      requested: window.$chatwoot._requestedBubbleVisibility,
+      excluded,
+    })
+  );
 };
 
 export const onLocationChangeListener = () => {
