@@ -379,7 +379,13 @@
     "SET_AVAILABILITY_TITLE": "Set yourself as",
     "SET_YOUR_AVAILABILITY": "Set your availability",
     "STATUS_BAR": {
-      "ONLINE_TODAY": "Online today"
+      "TITLE": {
+        "ONLINE": "You are online",
+        "BUSY": "You are busy",
+        "OFFLINE": "You are offline"
+      },
+      "TODAY": "{time} today",
+      "CHANGE": "Change"
     },
     "SLA": "SLA",
     "CUSTOM_ROLES": "Custom Roles",

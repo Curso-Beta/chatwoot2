@@ -61,6 +61,12 @@ agent_availability_poll_job:
   class: 'AgentAvailabilityPollJob'
   queue: scheduled_jobs
 
+# executed every 2 minutes; posts to Slack when a customer is waiting for a reply
+waiting_conversation_alert_job:
+  cron: '*/2 * * * *'
+  class: 'WaitingConversationAlertJob'
+  queue: scheduled_jobs
+
 # executed every 2 minutes for assignment_v2
 periodic_assignment_job:
   cron: '*/2 * * * *'

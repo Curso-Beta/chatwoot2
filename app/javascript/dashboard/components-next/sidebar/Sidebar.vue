@@ -1082,10 +1082,7 @@ const menuItems = computed(() => {
           isEffectivelyCollapsed
         "
       />
-      <SidebarStatusBar
-        v-if="!isEffectivelyCollapsed"
-        class="flex-shrink-0 border-t border-n-weak"
-      />
+      <SidebarStatusBar v-if="!isEffectivelyCollapsed" class="flex-shrink-0" />
       <div
         class="px-1 py-1.5 flex-shrink-0 flex w-full z-50 gap-2 items-center shadow-[0px_-2px_4px_0px_rgba(27,28,29,0.02)]"
         :class="[

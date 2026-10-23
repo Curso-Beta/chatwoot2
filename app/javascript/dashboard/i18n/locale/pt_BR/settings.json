@@ -379,7 +379,13 @@
     "SET_AVAILABILITY_TITLE": "Defina como",
     "SET_YOUR_AVAILABILITY": "Disponibilidade",
     "STATUS_BAR": {
-      "ONLINE_TODAY": "Online hoje"
+      "TITLE": {
+        "ONLINE": "Você está online",
+        "BUSY": "Você está ocupado",
+        "OFFLINE": "Você está offline"
+      },
+      "TODAY": "{time} hoje",
+      "CHANGE": "Mudar"
     },
     "SLA": "SLA",
     "CUSTOM_ROLES": "Funções Personalizadas",
