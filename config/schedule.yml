@@ -61,9 +61,9 @@ agent_availability_poll_job:
   class: 'AgentAvailabilityPollJob'
   queue: scheduled_jobs
 
-# executed every 30 minutes for assignment_v2
+# executed every 2 minutes for assignment_v2
 periodic_assignment_job:
-  cron: '*/30 * * * *'
+  cron: '*/2 * * * *'
   class: 'AutoAssignment::PeriodicAssignmentJob'
   queue: scheduled_jobs
 

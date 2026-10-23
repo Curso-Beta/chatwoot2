@@ -35,6 +35,24 @@ const isFeatureEnabledonAccount = useMapGetter(
   'accounts/isFeatureEnabledonAccount'
 );
 
+const AVAILABILITY_STYLES = {
+  online: { dot: 'bg-n-teal-9', text: 'text-n-teal-11' },
+  busy: { dot: 'bg-n-amber-9', text: 'text-n-amber-11' },
+  offline: { dot: 'bg-n-slate-9', text: 'text-n-slate-11' },
+};
+
+const availabilityStyle = computed(
+  () =>
+    AVAILABILITY_STYLES[currentUserAvailability.value] ||
+    AVAILABILITY_STYLES.offline
+);
+
+const availabilityLabel = computed(() =>
+  t(
+    `PROFILE_SETTINGS.FORM.AVAILABILITY.STATUS.${(currentUserAvailability.value || 'offline').toUpperCase()}`
+  )
+);
+
 const showChatSupport = computed(() => {
   return (
     isFeatureEnabledonAccount.value(
@@ -154,8 +172,16 @@ const allowedMenuItems = computed(() => {
           <div class="text-sm font-medium leading-4 truncate text-n-slate-12">
             {{ currentUser.available_name }}
           </div>
-          <div class="text-xs truncate text-n-slate-11">
-            {{ currentUser.email }}
+          <div
+            class="flex items-center gap-1 text-xs font-medium truncate"
+            :class="availabilityStyle.text"
+            :title="currentUser.email"
+          >
+            <span
+              class="size-1.5 rounded-full flex-shrink-0"
+              :class="availabilityStyle.dot"
+            />
+            {{ availabilityLabel }}
           </div>
         </div>
       </button>

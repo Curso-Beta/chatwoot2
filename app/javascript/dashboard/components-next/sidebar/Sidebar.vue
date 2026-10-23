@@ -15,6 +15,7 @@ import { useWindowSize, useEventListener } from '@vueuse/core';
 import Button from 'dashboard/components-next/button/Button.vue';
 import SidebarGroup from './SidebarGroup.vue';
 import SidebarProfileMenu from './SidebarProfileMenu.vue';
+import SidebarStatusBar from './SidebarStatusBar.vue';
 import SidebarChangelogCard from './SidebarChangelogCard.vue';
 import SidebarChangelogButton from './SidebarChangelogButton.vue';
 import ChannelLeaf from './ChannelLeaf.vue';
@@ -1081,9 +1082,16 @@ const menuItems = computed(() => {
           isEffectivelyCollapsed
         "
       />
+      <SidebarStatusBar
+        v-if="!isEffectivelyCollapsed"
+        class="flex-shrink-0 border-t border-n-weak"
+      />
       <div
-        class="px-1 py-1.5 flex-shrink-0 flex w-full z-50 gap-2 items-center border-t border-n-weak shadow-[0px_-2px_4px_0px_rgba(27,28,29,0.02)]"
-        :class="isEffectivelyCollapsed ? 'justify-center' : 'justify-between'"
+        class="px-1 py-1.5 flex-shrink-0 flex w-full z-50 gap-2 items-center shadow-[0px_-2px_4px_0px_rgba(27,28,29,0.02)]"
+        :class="[
+          isEffectivelyCollapsed ? 'justify-center' : 'justify-between',
+          { 'border-t border-n-weak': isEffectivelyCollapsed },
+        ]"
       >
         <SidebarProfileMenu
           :is-collapsed="isEffectivelyCollapsed"
