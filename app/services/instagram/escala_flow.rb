@@ -53,8 +53,49 @@ class Instagram::EscalaFlow
     "escala:opened:#{recipient_id}"
   end
 
+  def self.keyword?(text)
+    /\b#{Regexp.escape(ENV.fetch('ESCALA_KEYWORD', 'ESCALA'))}\b/i.match?(text.to_s)
+  end
+
+  # Modo teste: com ESCALA_ONLY_USERNAMES, só esses perfis recebem o fluxo
+  def self.allowed_user?(username)
+    only = ENV.fetch('ESCALA_ONLY_USERNAMES', '').split(',').map { |u| u.strip.delete_prefix('@').downcase }.reject(&:blank?)
+    only.empty? || only.include?(username.to_s.downcase)
+  end
+
+  # ESCALA_MEDIA_IDS fixa os posts; vazia, vale qualquer post
+  def self.media_ids
+    ENV.fetch('ESCALA_MEDIA_IDS', '').split(',').map(&:strip).reject(&:blank?)
+  end
+
+  # Webhook e busca de reserva disputam o mesmo comentário: só um responde
+  def self.claim_comment?(comment_id)
+    ::Redis::Alfred.set("escala:comment:#{comment_id}", 1, nx: true, ex: DEDUP_TTL)
+  end
+
   def initialize(channel)
     @channel = channel
+  end
+
+  # Aviso de comentário da Meta (webhook "comments"): dispara na hora
+  def handle_comment_event(value)
+    return if value['parent_id'].present? || value.dig('from', 'id') == @channel.instagram_id
+    return unless self.class.keyword?(value['text']) && self.class.allowed_user?(value.dig('from', 'username'))
+    return if self.class.media_ids.any? && self.class.media_ids.exclude?(value.dig('media', 'id').to_s)
+    return unless self.class.claim_comment?(value['id'])
+
+    handle_comment(value)
+  end
+
+  # Mandou a palavra-chave direto no direct: abertura com o botão
+  def start_from_dm(recipient_id)
+    return unless self.class.allowed_user?(username_of(recipient_id))
+    return unless ::Redis::Alfred.set("escala:dm:#{recipient_id}", 1, nx: true, ex: 1.hour)
+
+    response = send_dm({ id: recipient_id }, { text: OPENING, quick_replies: [quick_reply] })
+    response = send_dm({ id: recipient_id }, { text: OPENING_FALLBACK }) unless ok?(response)
+    ::Redis::Alfred.set(self.class.opened_key(recipient_id), 1, ex: 7.days) if ok?(response)
+    Rails.logger.info("[Escala] palavra no direct de #{recipient_id}: abertura #{ok?(response) ? 'enviada' : 'falhou'}")
   end
 
   def handle_comment(comment)
@@ -95,6 +136,12 @@ class Instagram::EscalaFlow
         }]
       }
     }
+  end
+
+  def username_of(instagram_scoped_id)
+    response = HTTParty.get("#{base_url}/#{instagram_scoped_id}",
+                            query: { fields: 'username', access_token: @channel.access_token }, timeout: 10)
+    ok?(response) ? response.parsed_response['username'] : nil
   end
 
   def reply_publicly(comment_id)

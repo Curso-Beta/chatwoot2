@@ -40,6 +40,11 @@ class Webhooks::InstagramEventsJob < MutexApplicationJob
   private
 
   def process_single_entry(entry)
+    if comment_event?(entry)
+      process_comments(entry)
+      return
+    end
+
     if test_event?(entry)
       process_test_event(entry)
       return
@@ -69,6 +74,24 @@ class Webhooks::InstagramEventsJob < MutexApplicationJob
 
   def test_event?(entry)
     entry[:changes].present?
+  end
+
+  # Aviso de comentário (campo "comments"): só o fluxo ESCALA usa
+  def comment_event?(entry)
+    entry[:changes].present? && entry[:changes].all? { |change| change[:field] == 'comments' }
+  end
+
+  def process_comments(entry)
+    return unless Instagram::EscalaFlow.enabled?
+
+    channel = Channel::Instagram.find_by(instagram_id: entry[:id])
+    return if channel.blank? || channel.inbox&.id.to_s != ENV.fetch('ESCALA_INBOX_ID', '11')
+
+    entry[:changes].each do |change|
+      Instagram::EscalaFlow.new(channel).handle_comment_event(change[:value].to_h.deep_stringify_keys)
+    end
+  rescue StandardError => e
+    Rails.logger.error("[Escala] comentário: #{e.message}")
   end
 
   def process_test_event(entry)
@@ -138,12 +161,17 @@ class Webhooks::InstagramEventsJob < MutexApplicationJob
     end
   end
 
-  # Fluxo ESCALA: quem tocou em "Quero o link" recebe o link (Instagram::EscalaFlow)
+  # Fluxo ESCALA: palavra-chave no direct abre o fluxo; "Quero o link" traz o link
   def escala_link(messaging, channel)
     return unless Instagram::EscalaFlow.enabled? && channel.inbox&.id.to_s == ENV.fetch('ESCALA_INBOX_ID', '11')
-    return unless Instagram::EscalaFlow.wants_link?(messaging)
+    return if messaging.dig(:message, :is_echo).present?
 
-    Instagram::EscalaFlow.new(channel).send_link(messaging.dig(:sender, :id))
+    flow = Instagram::EscalaFlow.new(channel)
+    if Instagram::EscalaFlow.wants_link?(messaging)
+      flow.send_link(messaging.dig(:sender, :id))
+    elsif Instagram::EscalaFlow.keyword?(messaging.dig(:message, :text))
+      flow.start_from_dm(messaging.dig(:sender, :id))
+    end
   rescue StandardError => e
     Rails.logger.error("[Escala] link: #{e.message}")
   end
