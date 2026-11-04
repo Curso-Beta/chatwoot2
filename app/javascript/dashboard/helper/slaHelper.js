@@ -62,6 +62,29 @@ export const shouldRefreshSLAStatus = ({ appliedSla, chat }) => {
 };
 
 /**
+ * Segundos que o cliente espera além do prazo de 1ª resposta ou de próxima
+ * resposta (SLA). Null quando não há atraso, a conversa não está aberta ou
+ * ninguém está esperando resposta. O prazo de resolução não conta: o cliente
+ * não está esperando por ele.
+ */
+export const waitingSlaLateness = ({ appliedSla, chat, now }) => {
+  if (!appliedSla || !chat || chat.status !== 'open') return null;
+  const conversation = useCamelCase(chat);
+  if (!conversation.waitingSince) return null;
+
+  const sla = useCamelCase(appliedSla);
+  const dueAt = toUnixTimestamp(
+    conversation.firstReplyCreatedAt ? sla.slaNrtDueAt : sla.slaFrtDueAt
+  );
+  if (!dueAt) return null;
+
+  const late = (now ?? Math.floor(Date.now() / 1000)) - dueAt;
+  return late > 0 ? late : null;
+};
+
+export const formatSlaLateness = seconds => formatSLATime(seconds);
+
+/**
  * Evaluates SLA status using backend-computed due times
  * @param {Object} params - Parameters object
  * @param {Object} params.appliedSla - The applied SLA with due_at timestamps

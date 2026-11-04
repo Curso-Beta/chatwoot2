@@ -12,6 +12,11 @@ import UnreadBadge from 'dashboard/components-next/Conversation/ConversationCard
 import SLACardLabel from './components/SLACardLabel.vue';
 import VoiceCallStatus from './VoiceCallStatus.vue';
 import Checkbox from 'dashboard/components-next/checkbox/Checkbox.vue';
+import {
+  waitingSlaLateness,
+  formatSlaLateness,
+} from 'dashboard/helper/slaHelper';
+import { useMinuteClock } from 'dashboard/composables/useMinuteClock';
 
 const props = defineProps({
   chat: { type: Object, required: true },
@@ -66,6 +71,18 @@ const hasSlaPolicyId = computed(
   () => props.chat?.applied_sla?.id && !props.currentContact?.blocked
 );
 
+// Cliente esperando além do prazo de 1ª resposta ou próxima resposta
+const now = useMinuteClock();
+const slaLateness = computed(() =>
+  props.currentContact?.blocked
+    ? null
+    : waitingSlaLateness({
+        appliedSla: props.chat?.applied_sla,
+        chat: props.chat,
+        now: now.value,
+      })
+);
+
 const showLabelsSection = computed(() => {
   return props.chat.labels?.length > 0 || hasSlaPolicyId.value;
 });
@@ -114,6 +131,8 @@ watch(
       'active animate-card-select bg-n-background !border-n-surface-1':
         isActiveChat,
       'selected bg-n-slate-2 !border-n-surface-1': selected,
+      'bg-n-ruby-2 shadow-[inset_3px_0_0_0_rgb(var(--ruby-9))]':
+        slaLateness && !isActiveChat && !selected,
       'px-0': compact,
       'px-3': !compact,
     }"
@@ -186,6 +205,13 @@ watch(
       >
         {{ currentContact.name }}
       </h4>
+      <span
+        v-if="slaLateness"
+        class="mx-2 mt-0.5 inline-flex w-fit items-center gap-1 rounded-md bg-n-ruby-3 px-1.5 py-0.5 text-xs font-medium text-n-ruby-11"
+      >
+        <span class="i-lucide-alarm-clock size-3" />
+        {{ $t('CHAT_LIST.SLA_LATE', { time: formatSlaLateness(slaLateness) }) }}
+      </span>
       <VoiceCallStatus
         v-if="voiceCallData.status"
         key="voice-status-row"

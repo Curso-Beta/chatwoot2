@@ -1,5 +1,6 @@
 {
   "CHAT_LIST": {
+    "SLA_LATE": "Atrasada há {time}",
     "LOADING": "Buscando conversas",
     "LOAD_MORE_CONVERSATIONS": "Carregar mais conversas",
     "EOF": "Todas as conversas carregadas 🎉",

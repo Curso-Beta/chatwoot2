@@ -24,6 +24,8 @@ import { useBulkActions } from 'dashboard/composables/chatlist/useBulkActions';
 import { useFilter } from 'shared/composables/useFilter';
 import { useTrack } from 'dashboard/composables';
 import { useI18n } from 'vue-i18n';
+import { waitingSlaLateness } from 'dashboard/helper/slaHelper';
+import { useMinuteClock } from 'dashboard/composables/useMinuteClock';
 import {
   useCamelCase,
   useSnakeCase,
@@ -317,6 +319,49 @@ function sortByUnreadStatus(conversations) {
   });
 }
 
+// Conversas com o cliente esperando além do prazo (SLA) sobem para o topo; a
+// ordem entre elas e entre as demais continua a mesma.
+const slaClock = useMinuteClock();
+function lateFirst(list) {
+  const isLate = c =>
+    waitingSlaLateness({
+      appliedSla: c.applied_sla,
+      chat: c,
+      now: slaClock.value,
+    }) !== null;
+  const late = list.filter(isLate);
+  return late.length ? [...late, ...list.filter(c => !isLate(c))] : list;
+}
+
+// Som curto quando uma conversa do atendente (ou sem responsável) passa a ficar
+// atrasada. Uma vez por atraso; o que já estava atrasado ao abrir não toca.
+const lateConversationIds = computed(() =>
+  store.getters.getAllConversations
+    .filter(c => {
+      const assigneeId = c.meta?.assignee?.id;
+      if (assigneeId && assigneeId !== currentUser.value?.id) return false;
+      return (
+        waitingSlaLateness({
+          appliedSla: c.applied_sla,
+          chat: c,
+          now: slaClock.value,
+        }) !== null
+      );
+    })
+    .map(c => c.id)
+);
+let knownLateIds = null;
+watch(lateConversationIds, ids => {
+  const isNew = knownLateIds && ids.some(id => !knownLateIds.has(id));
+  knownLateIds = new Set(ids);
+  if (!isNew) return;
+  try {
+    new Audio('/audio/dashboard/bell.mp3').play().catch(() => {});
+  } catch {
+    // sem som não impede o destaque na lista
+  }
+});
+
 const conversationList = computed(() => {
   let localConversationList = [];
 
@@ -353,7 +398,7 @@ const conversationList = computed(() => {
     localConversationList = sortByUnreadStatus(localConversationList);
   }
 
-  return localConversationList;
+  return lateFirst(localConversationList);
 });
 
 const showEndOfListMessage = computed(() => {
