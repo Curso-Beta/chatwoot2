@@ -1,6 +1,6 @@
 # Procura comentários com a palavra-chave nos posts recentes e dispara o fluxo ESCALA.
 # Ver Instagram::EscalaFlow. Liga com ESCALA_ENABLED=true e ESCALA_SINCE (ISO 8601):
-# comentários anteriores a ESCALA_SINCE nunca recebem mensagem.
+# comentários anteriores a ESCALA_SINCE nunca recebem mensagem. ESCALA_ONLY_USERNAMES = modo teste.
 class InstagramEscalaCommentJob < ApplicationJob
   queue_as :scheduled_jobs
 
@@ -35,6 +35,7 @@ class InstagramEscalaCommentJob < ApplicationJob
     media_ids(channel).flat_map { |media_id| comments(channel, media_id) }.select do |comment|
       Time.zone.parse(comment['timestamp'].to_s) >= since &&
         comment.dig('from', 'id') != channel.instagram_id &&
+        allowed_user?(comment.dig('from', 'username')) &&
         keyword_regex.match?(comment['text'].to_s)
     rescue ArgumentError
       false
@@ -60,6 +61,12 @@ class InstagramEscalaCommentJob < ApplicationJob
 
     Rails.logger.warn("[Escala] leitura falhou em #{path}: #{response.body.to_s[0, 200]}")
     {}
+  end
+
+  # Modo teste: com ESCALA_ONLY_USERNAMES, só esses perfis recebem o fluxo
+  def allowed_user?(username)
+    only = ENV.fetch('ESCALA_ONLY_USERNAMES', '').split(',').map { |u| u.strip.delete_prefix('@').downcase }.reject(&:blank?)
+    only.empty? || only.include?(username.to_s.downcase)
   end
 
   def keyword_regex
