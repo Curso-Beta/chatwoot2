@@ -132,9 +132,20 @@ class Webhooks::InstagramEventsJob < MutexApplicationJob
   def message(messaging, channel)
     if channel.is_a?(Channel::Instagram)
       ::Instagram::MessageText.new(messaging, channel).perform
+      escala_link(messaging, channel)
     else
       ::Instagram::Messenger::MessageText.new(messaging, channel).perform
     end
+  end
+
+  # Fluxo ESCALA: quem tocou em "Quero o link" recebe o link (Instagram::EscalaFlow)
+  def escala_link(messaging, channel)
+    return unless Instagram::EscalaFlow.enabled? && channel.inbox&.id.to_s == ENV.fetch('ESCALA_INBOX_ID', '11')
+    return unless Instagram::EscalaFlow.wants_link?(messaging)
+
+    Instagram::EscalaFlow.new(channel).send_link(messaging.dig(:sender, :id))
+  rescue StandardError => e
+    Rails.logger.error("[Escala] link: #{e.message}")
   end
 
   def read(messaging, channel)
