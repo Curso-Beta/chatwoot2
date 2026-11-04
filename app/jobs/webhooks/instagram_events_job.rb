@@ -62,6 +62,12 @@ class Webhooks::InstagramEventsJob < MutexApplicationJob
 
       next if channel.blank?
 
+      # clique em botão (postback) só interessa ao fluxo ESCALA
+      if messaging[:postback].present?
+        escala_link(messaging, channel) if channel.is_a?(Channel::Instagram)
+        next
+      end
+
       if (event_name = event_name(messaging))
         send(event_name, messaging, channel)
       end

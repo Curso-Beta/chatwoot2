@@ -40,8 +40,9 @@ class Instagram::EscalaFlow
     Inbox.find_by(id: ENV.fetch('ESCALA_INBOX_ID', '11'))
   end
 
-  # A pessoa respondeu no direct: tocou no botão ou escreveu "quero"
+  # A pessoa respondeu no direct: tocou no botão (ou na resposta sugerida) ou escreveu "quero"
   def self.wants_link?(messaging)
+    return true if messaging.dig(:postback, :payload) == PAYLOAD
     return true if messaging.dig(:message, :quick_reply, :payload) == PAYLOAD
     return false if messaging.dig(:message, :is_echo).present? || !WANTS_LINK.match?(messaging.dig(:message, :text).to_s)
 
@@ -92,16 +93,14 @@ class Instagram::EscalaFlow
     return unless self.class.allowed_user?(username_of(recipient_id))
     return unless ::Redis::Alfred.set("escala:dm:#{recipient_id}", 1, nx: true, ex: 1.hour)
 
-    response = send_dm({ id: recipient_id }, { text: OPENING, quick_replies: [quick_reply] })
-    response = send_dm({ id: recipient_id }, { text: OPENING_FALLBACK }) unless ok?(response)
+    response = send_opening({ id: recipient_id })
     ::Redis::Alfred.set(self.class.opened_key(recipient_id), 1, ex: 7.days) if ok?(response)
     Rails.logger.info("[Escala] palavra no direct de #{recipient_id}: abertura #{ok?(response) ? 'enviada' : 'falhou'}")
   end
 
   def handle_comment(comment)
     reply_publicly(comment['id'])
-    response = send_dm({ comment_id: comment['id'] }, { text: OPENING, quick_replies: [quick_reply] })
-    response = send_dm({ comment_id: comment['id'] }, { text: OPENING_FALLBACK }) unless ok?(response)
+    response = send_opening({ comment_id: comment['id'] })
     recipient_id = ok?(response) ? response.parsed_response['recipient_id'] : nil
     ::Redis::Alfred.set(self.class.opened_key(recipient_id), 1, ex: 7.days) if recipient_id.present?
     Rails.logger.info("[Escala] comentário #{comment['id']} (@#{comment.dig('from', 'username')}): direct #{ok?(response) ? 'enviado' : 'falhou'}")
@@ -119,6 +118,21 @@ class Instagram::EscalaFlow
   end
 
   private
+
+  # Botão de verdade; se a Meta recusar, resposta sugerida; por fim, "responda QUERO"
+  def send_opening(recipient)
+    response = send_dm(recipient, { attachment: opening_button })
+    response = send_dm(recipient, { text: OPENING, quick_replies: [quick_reply] }) unless ok?(response)
+    response = send_dm(recipient, { text: OPENING_FALLBACK }) unless ok?(response)
+    response
+  end
+
+  def opening_button
+    {
+      type: 'template',
+      payload: { template_type: 'button', text: OPENING, buttons: [{ type: 'postback', title: BUTTON_LABEL, payload: PAYLOAD }] }
+    }
+  end
 
   def quick_reply
     { content_type: 'text', title: BUTTON_LABEL, payload: PAYLOAD }
