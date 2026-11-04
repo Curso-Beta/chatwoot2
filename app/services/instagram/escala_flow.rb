@@ -11,9 +11,9 @@
 class Instagram::EscalaFlow
   PAYLOAD = 'ESCALA_LINK'.freeze
   PUBLIC_REPLIES = [
-    'Te mandei no direct 📩',
-    'Enviado! Confere seu direct 👀',
-    'Acabei de te mandar o link no direct ✅'
+    'Te mandei no direct 🚀',
+    'Já te mandei no direct 🚀',
+    'Te enviei tudo no direct 🚀'
   ].freeze
   BUTTON_LABEL = 'Quero o link'.freeze
   OPENING = "Oi! Aqui é da Hotwebinar × VK Metrics 👋\n\n" \
