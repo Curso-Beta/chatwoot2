@@ -82,20 +82,26 @@ class Webhooks::InstagramEventsJob < MutexApplicationJob
     entry[:changes].present?
   end
 
-  # Aviso de comentário (campo "comments"): só o fluxo ESCALA usa
+  # Aviso de comentário (campo "comments"): fluxo ESCALA e moderação
   def comment_event?(entry)
     entry[:changes].present? && entry[:changes].all? { |change| change[:field] == 'comments' }
   end
 
   def process_comments(entry)
-    return unless Instagram::EscalaFlow.enabled?
-
     channel = Channel::Instagram.find_by(instagram_id: entry[:id])
-    return if channel.blank? || channel.inbox&.id.to_s != ENV.fetch('ESCALA_INBOX_ID', '11')
+    return if channel.blank?
 
     entry[:changes].each do |change|
-      Instagram::EscalaFlow.new(channel).handle_comment_event(change[:value].to_h.deep_stringify_keys)
+      value = change[:value].to_h.deep_stringify_keys
+      escala_comment(channel, value)
+      InstagramCommentModerationJob.perform_later(channel.id, value) if Instagram::CommentModeration.enabled?
     end
+  end
+
+  def escala_comment(channel, value)
+    return unless Instagram::EscalaFlow.enabled? && channel.inbox&.id.to_s == ENV.fetch('ESCALA_INBOX_ID', '11')
+
+    Instagram::EscalaFlow.new(channel).handle_comment_event(value)
   rescue StandardError => e
     Rails.logger.error("[Escala] comentário: #{e.message}")
   end

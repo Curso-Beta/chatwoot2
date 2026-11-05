@@ -678,6 +678,8 @@ Rails.application.routes.draw do
   post 'webhooks/sms/:phone_number', to: 'webhooks/sms#process_payload'
   get 'webhooks/whatsapp/:phone_number', to: 'webhooks/whatsapp#verify'
   post 'webhooks/whatsapp/:phone_number', to: 'webhooks/whatsapp#process_payload'
+  get 'instagram_moderation/:token', to: 'instagram_moderation#show', constraints: { token: /[^\/]+/ }
+  post 'instagram_moderation/:token', to: 'instagram_moderation#create', constraints: { token: /[^\/]+/ }
   get 'webhooks/instagram', to: 'webhooks/instagram#verify'
   post 'webhooks/instagram', to: 'webhooks/instagram#events'
   post 'webhooks/tiktok', to: 'webhooks/tiktok#events'
