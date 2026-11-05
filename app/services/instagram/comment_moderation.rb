@@ -7,7 +7,8 @@
 #   - normal → nada.
 # Não responde ninguém. Todo comentário apagado fica registrado no Redis
 # (LOG_KEY) com texto, autor e post, porque apagar não tem volta.
-# Liga com IG_MODERATION_ENABLED=true; IG_MODERATION_SLACK_USER = quem decide.
+# Liga com IG_MODERATION_ENABLED=true; IG_MODERATION_SLACK_USER = quem decide;
+# IG_MODERATION_OPENAI_KEY = chave da IA.
 class Instagram::CommentModeration
   LOG_KEY = 'ig_moderation:log'.freeze
   LOG_SIZE = 2000
@@ -119,8 +120,10 @@ class Instagram::CommentModeration
     Rails.logger.info("[Moderação] #{result}: #{entry.to_json}")
   end
 
+  # IG_MODERATION_OPENAI_KEY = referência à chave da plataforma de agentes no Railway
+  # (a do Captain estava revogada em 05/11/2026); sem ela, a do Captain
   def openai_key
-    GlobalConfigService.load('CAPTAIN_OPEN_AI_API_KEY', nil)
+    ENV['IG_MODERATION_OPENAI_KEY'].presence || GlobalConfigService.load('CAPTAIN_OPEN_AI_API_KEY', nil)
   end
 
   def openai_endpoint
