@@ -1,10 +1,10 @@
 # Moderação de comentários do Instagram (Hotwebinar, 05/11/2026).
 #
 # Cada comentário novo (aviso "comments" da Meta) passa por uma IA:
-#   - ofensivo (xingamento, ódio, golpe, spam) → apagado na hora;
-#   - em dúvida → mensagem direta no Slack para quem decide, com links para
-#     apagar ou manter (InstagramModerationController);
-#   - normal → nada.
+#   - ofensivo (xingamento, ódio, golpe, spam) ou em dúvida → apagado na hora;
+#   - normal → nada;
+#   - IA sem resposta → mensagem direta no Slack para quem decide, com links
+#     para apagar ou manter (InstagramModerationController).
 # Não responde ninguém. Todo comentário apagado fica registrado no Redis
 # (LOG_KEY) com texto, autor e post, porque apagar não tem volta.
 # Liga com IG_MODERATION_ENABLED=true; IG_MODERATION_SLACK_USER = quem decide;
@@ -42,9 +42,10 @@ class Instagram::CommentModeration
 
     verdict = classify(value['text'])
     Rails.logger.info("[Moderação] #{value['id']} (@#{value.dig('from', 'username')}): #{verdict['categoria']} — #{verdict['motivo']}")
-    case verdict['categoria']
-    when 'ofensivo' then delete!(value, verdict['motivo'], by: 'ia')
-    when 'duvida' then ask_human(value, verdict['motivo'])
+    # Breno, 06/11: ambíguo também é apagado. Só a falha da IA vai ao Slack:
+    # sem resposta dela, nada é apagado.
+    if verdict['falhou'] then ask_human(value, verdict['motivo'])
+    elsif %w[ofensivo duvida].include?(verdict['categoria']) then delete!(value, "#{verdict['categoria']}: #{verdict['motivo']}", by: 'ia')
     end
   end
 
@@ -75,11 +76,11 @@ class Instagram::CommentModeration
       timeout: 20
     )
     parsed = JSON.parse(response.parsed_response.dig('choices', 0, 'message', 'content').to_s)
-    CATEGORIES.include?(parsed['categoria']) ? parsed : { 'categoria' => 'duvida', 'motivo' => 'resposta da IA fora do padrão' }
+    CATEGORIES.include?(parsed['categoria']) ? parsed : { 'falhou' => true, 'motivo' => 'resposta da IA fora do padrão' }
   rescue StandardError => e
-    # IA fora do ar: ninguém é apagado sem certeza; vai para revisão humana
+    # IA fora do ar: ninguém é apagado sem a IA; vai para revisão humana
     Rails.logger.error("[Moderação] IA falhou: #{e.message}")
-    { 'categoria' => 'duvida', 'motivo' => 'a IA não respondeu' }
+    { 'falhou' => true, 'motivo' => 'a IA não respondeu' }
   end
 
   def ask_human(value, reason)
