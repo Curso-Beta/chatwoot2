@@ -50,7 +50,9 @@ class Instagram::MessageText < Instagram::BaseMessageText
     # We can only get consent to access a user's profile if they have previously sent a message to the connected Instagram account.
     # In such cases, we receive the error "User consent is required to access user profile".
     # We can safely ignore this error.
-    return if error_code == 230
+    # Fork: em mensagem RECEBIDA (pedido de mensagem ainda não aceito) o 230 também
+    # aparece, e ignorar descartava a mensagem do cliente. Aí cria contato desconhecido.
+    return (agent_message_via_echo? ? nil : unknown_user(ig_scope_id)) if error_code == 230
 
     # The error occurs when Facebook tries to validate the Facebook App created to authorize Instagram integration.
     # The Facebook's agent uses a Bot to make tests on the App where is not a valid user via API,
