@@ -90,7 +90,7 @@ class Instagram::CommentModeration
 
     link = ->(action) { "#{ENV.fetch('FRONTEND_URL', '')}/instagram_moderation/#{InstagramModerationController.token_for(@channel, value, action)}" }
     text = [
-      ':warning: *Comentário em dúvida no Instagram @hotwebinar_*',
+      ":warning: *Comentário para revisar no Instagram @#{@channel.inbox&.name}*",
       "> #{value['text'].to_s.tr("\n", ' ')[0, 500]}",
       "Autor: @#{value.dig('from', 'username') || '?'} · Motivo da IA: #{reason}",
       permalink(value).then { |url| url ? "<#{url}|Ver o post>" : nil },
