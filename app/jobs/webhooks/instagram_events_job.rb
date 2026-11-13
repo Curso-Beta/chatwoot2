@@ -102,9 +102,9 @@ class Webhooks::InstagramEventsJob < MutexApplicationJob
   end
 
   def live_comment(channel, value)
-    Instagram::LiveKeywordFlow.new(channel).handle(value) if Instagram::LiveKeywordFlow.enabled_for?(channel)
-  rescue StandardError => e
-    Rails.logger.error("[Live] comentário: #{e.message}")
+    return unless Instagram::CommentModeration.enabled? || Instagram::LiveKeywordFlow.enabled_for?(channel)
+
+    InstagramLiveCommentJob.perform_later(channel.id, value)
   end
 
   def escala_comment(channel, value)

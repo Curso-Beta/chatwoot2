@@ -34,18 +34,25 @@ class Instagram::CommentModeration
     @channel = channel
   end
 
-  # value: payload do aviso "comments" (id, text, from, media, parent_id)
+  # value: payload do aviso "comments" ou "live_comments" (id, text, from, media, parent_id).
+  # Devolve true quando o comentário foi barrado (mesmo que a Meta recuse apagar).
   def moderate(value)
-    return if value['id'].blank? || value['text'].blank?
-    return if value.dig('from', 'id') == @channel.instagram_id
-    return unless ::Redis::Alfred.set("ig_moderation:seen:#{value['id']}", 1, nx: true, ex: 7.days)
+    return false if value['id'].blank? || value['text'].blank?
+    return false if value.dig('from', 'id') == @channel.instagram_id
+    return false unless ::Redis::Alfred.set("ig_moderation:seen:#{value['id']}", 1, nx: true, ex: 7.days)
 
     verdict = classify(value['text'])
     Rails.logger.info("[Moderação] #{value['id']} (@#{value.dig('from', 'username')}): #{verdict['categoria']} — #{verdict['motivo']}")
     # Breno, 06/11: ambíguo também é apagado. Só a falha da IA vai ao Slack:
     # sem resposta dela, nada é apagado.
-    if verdict['falhou'] then ask_human(value, verdict['motivo'])
-    elsif %w[ofensivo duvida].include?(verdict['categoria']) then delete!(value, "#{verdict['categoria']}: #{verdict['motivo']}", by: 'ia')
+    if verdict['falhou']
+      ask_human(value, verdict['motivo'])
+      false
+    elsif %w[ofensivo duvida].include?(verdict['categoria'])
+      delete!(value, "#{verdict['categoria']}: #{verdict['motivo']}", by: 'ia')
+      true
+    else
+      false
     end
   end
 
