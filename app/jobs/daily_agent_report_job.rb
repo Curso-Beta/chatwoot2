@@ -169,7 +169,8 @@ class DailyAgentReportJob < ApplicationJob
     private
 
     def sent
-      Message.where(sender_type: 'User', sender_id: @user.id, message_type: :outgoing, private: false, created_at: @day_start..@shift_end)
+      # reorder(nil): Message tem ordenação padrão, que quebra o group/minimum
+      Message.reorder(nil).where(sender_type: 'User', sender_id: @user.id, message_type: :outgoing, private: false, created_at: @day_start..@shift_end)
     end
 
     def email_inbox_ids
@@ -180,9 +181,9 @@ class DailyAgentReportJob < ApplicationJob
     # 1ª resposta do atendente no dia (antes do expediente não conta)
     def chat_waits
       sent.where.not(inbox_id: email_inbox_ids).group(:conversation_id).minimum(:created_at).filter_map do |conversation_id, reply_at|
-        last_human = Message.where(conversation_id: conversation_id, message_type: :outgoing, private: false, sender_type: 'User')
+        last_human = Message.reorder(nil).where(conversation_id: conversation_id, message_type: :outgoing, private: false, sender_type: 'User')
                             .where.not(sender_id: DailyAgentReportJob::AI_USER_IDS).where(created_at: ...reply_at).maximum(:created_at)
-        waiting = Message.where(conversation_id: conversation_id, message_type: :incoming).where(created_at: ...reply_at)
+        waiting = Message.reorder(nil).where(conversation_id: conversation_id, message_type: :incoming).where(created_at: ...reply_at)
         waiting = waiting.where('created_at > ?', last_human) if last_human
         start = waiting.minimum(:created_at)
         reply_at - [start, @shift_start].max if start
