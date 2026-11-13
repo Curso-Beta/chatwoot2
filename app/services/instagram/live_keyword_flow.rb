@@ -1,4 +1,4 @@
-# Comentou a palavra-chave na live → direct na hora (Curso Beta, Black Friday,
+# Comentou na live → direct na hora (Curso Beta, Black Friday,
 # 13/11/2026). Só a abertura sai daqui, já perguntando a profissão: quando a pessoa
 # responde, a conversa é da Ana (plataforma de agentes), que lê a abertura no
 # histórico do Chatwoot (sabe que veio da live) e manda a página da Black da
@@ -6,8 +6,9 @@
 # Uma mensagem por pessoa por live. Liga com LIVE_FLOW_ENABLED=true;
 # LIVE_FLOW_INBOX_ID (padrão 15), LIVE_FLOW_KEYWORDS (regex), LIVE_FLOW_TEXT.
 class Instagram::LiveKeywordFlow
-  # "black" em qualquer forma (Black Friday, blackfriday, blacks) ou "quero"
-  DEFAULT_KEYWORDS = 'black|\bquero\b'.freeze
+  # Breno, 13/11: qualquer comentário na live dispara (uma vez por pessoa por live).
+  # Para voltar a filtrar: LIVE_FLOW_KEYWORDS='black|\bquero\b'
+  DEFAULT_KEYWORDS = '\S'.freeze
   DEFAULT_TEXT = "Oi! Aqui é a Ana, do Curso Beta 👋\n\n" \
                  'Vi seu comentário na live da Black Friday! Me conta: qual é a sua profissão? ' \
                  'Assim eu te mando o link da oferta da formação certa pra você.'.freeze
