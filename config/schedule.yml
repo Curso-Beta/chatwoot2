@@ -62,6 +62,11 @@ agent_availability_poll_job:
   queue: scheduled_jobs
 
 # executed every 2 minutes; posts to Slack when a customer is waiting for a reply
+daily_agent_report_job:
+  cron: '0 * * * *'
+  class: 'DailyAgentReportJob'
+  queue: scheduled_jobs
+
 instagram_conversation_sync_job:
   cron: '*/5 * * * *'
   class: 'InstagramConversationSyncJob'
