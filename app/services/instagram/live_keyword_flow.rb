@@ -1,7 +1,8 @@
 # Comentou a palavra-chave na live → direct na hora (Curso Beta, Black Friday,
-# 13/11/2026). Só a abertura sai daqui: quando a pessoa responde, a conversa é da
-# Ana (plataforma de agentes), que pergunta a profissão e manda a página da Black
-# da formação. A Meta só aceita a resposta privada enquanto a live está no ar.
+# 13/11/2026). Só a abertura sai daqui, já perguntando a profissão: quando a pessoa
+# responde, a conversa é da Ana (plataforma de agentes), que lê a abertura no
+# histórico do Chatwoot (sabe que veio da live) e manda a página da Black da
+# formação. A Meta só aceita a resposta privada enquanto a live está no ar.
 # Uma mensagem por pessoa por live. Liga com LIVE_FLOW_ENABLED=true;
 # LIVE_FLOW_INBOX_ID (padrão 15), LIVE_FLOW_KEYWORDS (regex), LIVE_FLOW_TEXT.
 class Instagram::LiveKeywordFlow
@@ -33,10 +34,27 @@ class Instagram::LiveKeywordFlow
                              body: { recipient: { comment_id: value['id'] }, message: { text: text } }.to_json, timeout: 15)
     ok = response.success? && response.parsed_response.is_a?(Hash) && response.parsed_response['error'].blank?
     ::Redis::Alfred.delete(once) unless ok
+    ensure_contact(response.parsed_response['recipient_id'], value) if ok
     Rails.logger.info("[Live] comentário #{value['id']} (@#{value.dig('from', 'username')}): direct #{ok ? 'enviado' : "falhou #{response.body.to_s[0, 200]}"}")
   end
 
   private
+
+  # Quem só comentou ainda não deu consentimento: a Meta recusa o perfil (erro 230)
+  # e o eco da abertura se perderia sem contato. Criado aqui, o eco entra na
+  # conversa, e a Ana lê a abertura no histórico quando a pessoa responder.
+  def ensure_contact(recipient_id, value)
+    return if recipient_id.blank? || @channel.inbox.contact_inboxes.exists?(source_id: recipient_id)
+
+    username = value.dig('from', 'username')
+    ::ContactInboxWithContactBuilder.new(
+      source_id: recipient_id, inbox: @channel.inbox,
+      contact_attributes: { name: username.presence || "Instagram #{recipient_id}",
+                            additional_attributes: { social_instagram_user_name: username, origem: 'live_black' }.compact }
+    ).perform
+  rescue StandardError => e
+    Rails.logger.warn("[Live] não criei o contato #{recipient_id}: #{e.message}")
+  end
 
   def keyword_regex
     Regexp.new(ENV.fetch('LIVE_FLOW_KEYWORDS', DEFAULT_KEYWORDS), Regexp::IGNORECASE)
