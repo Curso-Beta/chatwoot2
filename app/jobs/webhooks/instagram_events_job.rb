@@ -82,9 +82,10 @@ class Webhooks::InstagramEventsJob < MutexApplicationJob
     entry[:changes].present?
   end
 
-  # Aviso de comentário (campo "comments"): fluxo ESCALA e moderação
+  # Aviso de comentário em post/reels ("comments": ESCALA e moderação) ou em live
+  # ("live_comments": Instagram::LiveKeywordFlow)
   def comment_event?(entry)
-    entry[:changes].present? && entry[:changes].all? { |change| change[:field] == 'comments' }
+    entry[:changes].present? && entry[:changes].all? { |change| %w[comments live_comments].include?(change[:field]) }
   end
 
   def process_comments(entry)
@@ -93,9 +94,17 @@ class Webhooks::InstagramEventsJob < MutexApplicationJob
 
     entry[:changes].each do |change|
       value = change[:value].to_h.deep_stringify_keys
+      next live_comment(channel, value) if change[:field] == 'live_comments'
+
       escala_comment(channel, value)
       InstagramCommentModerationJob.perform_later(channel.id, value) if Instagram::CommentModeration.enabled?
     end
+  end
+
+  def live_comment(channel, value)
+    Instagram::LiveKeywordFlow.new(channel).handle(value) if Instagram::LiveKeywordFlow.enabled_for?(channel)
+  rescue StandardError => e
+    Rails.logger.error("[Live] comentário: #{e.message}")
   end
 
   def escala_comment(channel, value)
